@@ -310,3 +310,12 @@ type PageInfo { endCursor: String, hasNextPage: Boolean! }
 
 **Auditing:** All search and admin actions logged via SA2.DB1/
 
+
+#12 Risks to Completion
+Learning Curve: Slack App Home ergonomics and modals UX; PG-FTS tuning.
+Design/Implement: QueryPlanner & PermissionsResolver integration with SA1 provenance.
+Verification: Permission-aware search e2e tests across multiple providers and workspaces.
+Maintenance: Schema migrations for logs at scale; rank weight tuning without ML.
+Updates: Slack API changes; contract tests and capability flags. Criteria to adopt updates: security fixes → ASAP; minor features → after canary.
+Support: Open-source libs pinned; security fixes tracked via dependabot; no vendor ML dependencies.
+
