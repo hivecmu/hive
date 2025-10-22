@@ -1,321 +1,304 @@
-# SA2 --- Communication Structure Recommender
-
-## 0. Header
-
--   **Title:** SA2 -- Communication Structure Recommender\
--   **Version:** v1.0 (2025-09-23)\
--   **Authors:** Akeil (PM), Dev A (Backend), Dev B (Frontend), Dev C
-    (Infra)\
--   **Scope:** Recommend channel and subgroup structures for clubs
-    (Slack/Discord style) using deterministic heuristics, constraints,
-    and optional imports.\
--   **Assumptions:** One org → many communities; optional read-only
-    imports; all recommendations are previewed before applied.
-
-**Rationale:** Establishes project scope, ownership, and assumptions so
-the team is aligned before digging into design.
-
-------------------------------------------------------------------------
-
-## 1. Architecture Diagram (text)
-
-### Components & Deployment
-
--   **Client (React 18 + TS + Tailwind)**\
-    `DashboardPage`, `CommunityWizard`, `RecommendationView`,
-    `RuleEditor`, `ChangeSetPreview`, `AuditPane`
-
--   **Backend (Node 20 + TS)**\
-    `AuthGateway` (Clerk JWT validation),\
-    `Gateway` (REST + GraphQL endpoints),\
-    `HeuristicEngine` (rule-based scoring),\
-    `BlueprintBuilder` (channel/subgroup blueprinting),\
-    `ChangePlanner` (diff computation),\
-    `AccessControl` (RBAC),\
-    `AuditLogger` (writes audits),\
-    `SlackConnector`, `DiscordConnector` (imports),\
-    `Scheduler`, `JobWorker` (Redis-backed jobs)
-
--   **Persistence**\
-    Postgres 16 (primary DB + FTS),\
-    Redis (jobs/locks; optional)
-
-### Data Flows
-
-1.  Client → Clerk JWT → `AuthGateway` → `Gateway`\
-2.  Optional imports: `Scheduler` → `Connector` → PG\
-3.  Admin input: Client → `Gateway` → save metadata, rules\
-4.  Recommender: `Gateway` → `HeuristicEngine` → `BlueprintBuilder` →
-    `ChangePlanner` → PG\
-5.  Client fetches blueprint + changeset\
-6.  Audit logs written to PG
-
-**Rationale:** Clarifies runtime boundaries and how information moves
-through the system.
-
-------------------------------------------------------------------------
-
-## 2. Class Diagram (conceptual)
-
--   **API Layer**\
-    `AuthGateway`, `Gateway`
-
--   **Core**\
-    `HeuristicEngine` (uses `RuleSet`, `Constraint`, `Scorer`)\
-    `BlueprintBuilder`\
-    `ChangePlanner`\
-    `AccessControl`\
-    `AuditLogger`
-
--   **Domain**\
-    `Community`, `Membership`, `Channel`, `Subgroup`\
-    `RuleSet`, `Rule`, `Constraint`, `Recommendation`, `Blueprint`,
-    `ChangeSet`
-
--   **Integrations**\
-    `SlackConnector`, `DiscordConnector`
-
--   **Jobs**\
-    `Scheduler`, `JobWorker`, `ImportJob`, `RecomputeJob`
-
-**Rationale:** Shows ownership of responsibilities and dependencies at a
-glance.
-
-------------------------------------------------------------------------
-
-## 3. List of Classes
-
--   **API:** `AuthGateway`, `Gateway`\
--   **Core:** `HeuristicEngine`, `BlueprintBuilder`, `ChangePlanner`,
-    `AccessControl`, `AuditLogger`\
--   **Domain:** `Community`, `Membership`, `Channel`, `Subgroup`,
-    `RuleSet`, `Recommendation`, `Blueprint`, `ChangeSet`\
--   **Integrations:** `SlackConnector`, `DiscordConnector`\
--   **Jobs:** `Scheduler`, `JobWorker`, `ImportJob`, `RecomputeJob`
-
-**Rationale:** Provides the canonical list of classes so nothing is
-"phantom" or implied.
-
-------------------------------------------------------------------------
-
-## 4. State Diagrams
-
-### Recommendation Lifecycle
-
-    Draft → Tuned → Approved → Published → Archived
-
-### Import Lifecycle
-
-    Unlinked → Linked → Importing → Imported → Stale
-
-**Rationale:** Makes valid states explicit and ties them to API
-operations.
-
-------------------------------------------------------------------------
-
-## 5. Flow Chart (primary scenario)
-
-**Scenario SA2.S1 -- Create Structure**
-
-1.  Login (Clerk)\
-2.  Create community (inputs: size, goals, constraints)\
-3.  (Optional) Import current workspace\
-4.  Run `HeuristicEngine`\
-5.  Show `Blueprint` + `ChangeSet`\
-6.  Admin reviews + approves\
-7.  Export checklist/scripts
-
-**Rationale:** Defines one path to value, which is testable end-to-end.
-
-------------------------------------------------------------------------
-
-## 6. Development Risks & Failures
-
--   **Over-recommendation** (too many channels) → cap by constraints\
--   **Insufficient signal** (no import) → use defaults, flag confidence\
--   **Connector rate limits** → backoff, caching\
--   **Rule conflicts** → precedence (constraints \> defaults \> system
-    rules)\
--   **Approval churn** → version recommendations + rollback
-
-**Rationale:** Turns abstract risks into actionable recovery strategies.
-
-------------------------------------------------------------------------
-
-## 7. Technology Stack
-
--   **Frontend:** React 18 + TS + Tailwind (shadcn/ui optional)\
--   **Backend:** Node 20 + TS\
--   **APIs:** REST (OpenAPI 3.1), GraphQL\
--   **Auth:** Clerk\
--   **Data:** Postgres 16 + Redis (optional)\
--   **Excluded:** ML, Observability tooling
-
-**Rationale:** Consistent stack across specs; reduces operational
-variance.
-
-------------------------------------------------------------------------
-
-## 8. APIs
-
-### REST (OpenAPI excerpts)
-
--   `POST /communities` → create community\
--   `POST /communities/{id}/import` → trigger import (Slack/Discord)\
--   `PUT /rulesets/{id}` → upsert rules\
--   `POST /recommendations:compute` → run recommender\
--   `GET /blueprints/{id}` → fetch blueprint\
--   `POST /changesets/{id}/approve` → approve recommendation\
--   `POST /changesets/{id}/publish` → publish + export checklist\
--   `GET /audits` → list audits
-
-### GraphQL (read-heavy)
-
-``` graphql
-type ChannelPlan { name: String!, purpose: String!, access: String!, archived: Boolean! }
-type SubgroupPlan { name: String!, membersEstimate: Int!, channels: [ChannelPlan!]! }
-
-type Blueprint {
-  id: ID!
-  communityId: ID!
-  summary: String!
-  channels: [ChannelPlan!]!
-  subgroups: [SubgroupPlan!]!
-  namingRules: [String!]!
-}
-
-type Recommendation {
-  id: ID!
-  blueprint: Blueprint!
-  score: Float!
-  constraintsViolated: [String!]!
-  state: String!
-}
-
-type Query {
-  blueprint(id: ID!): Blueprint
-  recommendations(communityId: ID!): [Recommendation!]!
-}
-
-type Mutation {
-  computeRecommendation(communityId: ID!): Recommendation!
-  approveChangeSet(changeSetId: ID!): Boolean!
-}
-```
-
-**Rationale:** REST for commands, GraphQL for nested data; keeps client
-queries efficient.
-
-------------------------------------------------------------------------
-
-## 9. Public Interfaces
-
--   **Client ↔ API:** Clerk-authenticated; REST mutations, GraphQL
-    reads\
--   **External Providers:** Slack/Discord imports (read-only); outputs
-    are scripts/checklists only\
--   **Admins:** Audit log access + rule presets
-
-**Rationale:** Clear boundaries make integrations safer and simpler.
-
-------------------------------------------------------------------------
-
-## 10. Data Schemas (Postgres 16)
-
-*All PKs are UUID v7, all times `timestamptz` (UTC). FTS on names.*
-
--   **communities**: `id`, `org_id`, `name`, `description`,
-    `created_at`, `updated_at`\
--   **memberships**: `id`, `community_id`, `user_id`, `role`,
-    `created_at`\
--   **imports**: `id`, `community_id`, `provider`, `status`,
-    `payload jsonb`, `created_at`, `updated_at`\
--   **rulesets**: `id`, `community_id`, `constraints jsonb`,
-    `weights jsonb`, `created_at`, `updated_at`\
--   **recommendations**: `id`, `community_id`, `ruleset_id`, `score`,
-    `state`, `created_at`, `updated_at`\
--   **blueprints**: `id`, `recommendation_id`, `summary`,
-    `naming_rules jsonb`, `channels jsonb`, `subgroups jsonb`,
-    `archived_at`\
--   **changesets**: `id`, `recommendation_id`, `diff jsonb`,
-    `approved_by`, `approved_at`, `published_at`\
--   **audits**: `id`, `actor`, `action`, `resource`, `meta jsonb`,
-    `at timestamptz`
-
-**Rationale:** Mirrors the domain model; keeps recommendations auditable
-and reversible.
-
-------------------------------------------------------------------------
-
-## 11. Security & Privacy
-
--   **AuthN:** Clerk JWTs verified by `AuthGateway`\
--   **AuthZ:** RBAC at org → community → resource\
--   **PII:** Names/emails limited to auth + audits\
--   **Transport:** TLS 1.3; secure cookies (httpOnly, sameSite=strict)\
--   **Connectors:** Read-only tokens, encrypted at rest, rotated every
-    90 days\
--   **Auditing:** All approvals/publishes logged\
--   **Retention:** Community deletion cascades; audit logs per policy
-
-**Rationale:** Provides minimum viable guarantees to keep org/student
-data safe.
-
-------------------------------------------------------------------------
-
-## 12. Risks to Completion
-
--   **Heuristic quality disagreements** → allow rule/weight tuning +
-    rationales\
--   **Connector API drift** → capability flags + contract tests\
--   **Scope creep to auto-apply** → v1 exports only; human-in-the-loop\
--   **Scaling issues (1k+ channels)** → batching, pagination, GIN
-    indices\
--   **Governance disputes** → versioned blueprints, rollback support
-
-**Rationale:** Flags highest-probability blockers so PM/eng can
-prioritize testing.
-
-------------------------------------------------------------------------
-
-## 13. Heuristic Engine (Deterministic)
-
--   **Inputs:** community size, committees, events, recruiting,
-    moderation capacity, pain points, optional import\
--   **Rules:**
-    -   Create `#announcements` (write: officers, read: all)\
-    -   Add `workstreams/*` if \>N initiatives\
-    -   Enforce naming: `<org>-<topic>-<scope>`\
-    -   Suggest archival for inactive \>X days\
-    -   Subgroups if committees/size thresholds exceeded\
--   **Scoring:** coverage + simplicity -- overlap penalty\
--   **Outputs:** `Blueprint`, `ChangeSet`, rationale text
-
-**Rationale:** Explainable, tunable, and usable without ML.
-
-------------------------------------------------------------------------
-
-## 14. Public UI Flows
-
--   **CommunityWizard:** capture inputs/constraints/import\
--   **RecommendationView:** show blueprint + rationale + "channel
-    budget"\
--   **RuleEditor:** tweak rules, rerun\
--   **ChangeSetPreview:** diff view + export checklist/scripts\
--   **AuditPane:** show approval/publish history
-
-**Rationale:** Maps UI directly to API states, making UX predictable.
-
-------------------------------------------------------------------------
-
-## 15. Consistency Check
-
--   Classes appear in all diagrams and lists.\
--   State transitions map to API endpoints.\
--   Data schemas mirror domain + audits.\
--   Stack consistent with org standards (React/TS/Tailwind +
-    Node/PG/Clerk).
-
-**Rationale:** Prevents drift and misalignment across documents.
-
-------------------------------------------------------------------------
+# User Story 2 Dev Spec
+
+
+## Title: Centralized AI-Linked Project File Hub (User Story #2)
+
+Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
+
+Version/Date: v1.0 — 2025-10-21
+
+User Story:
+As a project manager, I want Slack to design a centralized project file hub that integrates with the created structure, using channel and subgroup data to consolidate, deduplicate, tag, and make all project files searchable so that my team can easily find and manage files across the workspace.
+
+Outcome:
+A Slack-integrated file hub that auto-aggregates all shared files (messages, threads, Drive/SharePoint attachments, and pinned content) from the newly generated workspace structure, deduplicates them, applies smart tagging, and provides unified search and preview capabilities via Slack Home Tab or Modals.
+Primary KPIs:
+Average file retrieval time (<5 sec), file duplication reduction (≥40%), search precision@5 (≥0.8), PM satisfaction (CSAT ≥4.5/5).
+
+## Architecture Diagram
+
+![ alt text](u2_arch.png)
+
+flowchart LR
+ subgraph slack_client ["Slack Client (User Workspace)"]
+   H[Home Tab]
+   FH[File Hub View]
+   M[Config Modal]
+   SC[/Slash Commands/]
+   SHT[(Shortcuts)]
+ end
+
+ subgraph backend ["Backend (Cloud)"]
+   API[Events & Interactions API]
+   ORC[Orchestrator Service]
+   AI["AI Engine\n(Tagging + Dedup + Relevance Model)"]
+   IDX[(Vector + Full-Text Index)]
+   DB[(PostgreSQL)]
+   Q[(Queue)]
+   REDIS[(Redis Cache)]
+   S3[(File Metadata Store)]
+   OBS[(Telemetry/Logs)]
+ end
+
+ subgraph integrations ["3rd-Party Integrations"]
+   SLAPI["Slack Web API + Files API"]
+   DRV["Google Drive/SharePoint Connectors"]
+   LLM[(Model Provider)]
+   DLP[(PII Redaction)]
+ end
+
+ SC --> API
+ SHT --> API
+ FH <--> API
+ M <--> API
+
+ API --> ORC
+ ORC -->|index job| Q
+ ORC -->|sync| DRV
+ ORC -->|fetch| SLAPI
+ ORC --> AI
+ AI -->|tags & embeddings| IDX
+ ORC --> DB
+ ORC <--> REDIS
+ ORC --> S3
+ ORC --> OBS
+ ORC --> DLP
+
+Explanation:
+User interactions (Home Tab, File Hub View, slash commands, modals) trigger the Events API. The Orchestrator synchronizes workspace metadata and file references (from Slack and external drives). Files are deduplicated, classified, and embedded via the AI Engine. Metadata and embeddings persist in PostgreSQL and the vector index for fast semantic search. Redis accelerates session caching; S3 stores previews and extracted text. The DLP stage sanitizes sensitive content. Users can view or search from the File Hub in Slack.
+
+2b. Information Flows
+Sync Trigger → Harvest Files → Deduplicate → Tag/Embed → Index → Search UI → Audit/Feedback.
+Each phase persists incremental metadata and telemetry events.
+
+## Class Diagram
+
+![ alt text](u2_class.png)
+
+classDiagram
+  class FileSyncJob {
+    +UUID id
+    +String workspaceId
+    +JobStatus status
+    +String initiatedByUserId
+    +Instant createdAt
+    +Instant updatedAt
+    +start()
+    +advance(to: JobStatus)
+    +fail(reason: String)
+  }
+
+  class FileRecord {
+    +UUID id
+    +String externalId
+    +String source
+    +String name
+    +String mimeType
+    +String url
+    +String channelId
+    +String[] tags
+    +String hash
+    +boolean isDuplicate
+  }
+
+  class FileEmbedding {
+    +UUID id
+    +UUID fileId
+    +float[] vector
+    +String modelVersion
+  }
+
+  class FileTagger {
+    +generateTags(fileText): String[]
+    +deduplicate(files[]): FileRecord[]
+    +embed(fileText): float[]
+  }
+
+  class FileHubContext {
+    +Channel[] channels
+    +UserGroup[] groups
+    +Map~String,Any~ metadata
+  }
+
+  class Orchestrator {
+    +startSync(workspaceId): FileSyncJob
+    +harvestFiles(jobId)
+    +runDedup(jobId)
+    +tagAndIndex(jobId)
+    +renderFileHub(workspaceId)
+  }
+
+  class SearchService {
+    +search(query:String, filters:Map): FileRecord[]
+    +semanticSearch(query:String): FileRecord[]
+    +suggestTags(fileId:UUID): String[]
+  }
+
+  class SlackClient {
+    +listFiles(channelId)
+    +getFileInfo(fileId)
+    +postMessage(channelId, blocks)
+    +openView(userId, view)
+  }
+
+  FileSyncJob --> FileRecord
+  FileRecord --> FileEmbedding
+  Orchestrator --> FileTagger
+  Orchestrator --> SearchService
+  Orchestrator --> SlackClient
+
+Explanation:
+FileSyncJob governs the sync lifecycle. FileRecord stores normalized metadata from Slack and integrations. FileTagger handles AI-powered deduplication and tagging. FileEmbedding supports vector search. Orchestratormanages sequencing. SearchService exposes text + semantic queries.
+
+## List of Classes (Purpose & Responsibilities)
+
+FileSyncJob — Controls lifecycle and status transitions of file synchronization/indexing jobs.
+FileRecord — Represents one logical file with deduplication hash, tags, and Slack linkage.
+FileEmbedding — Holds vector embeddings for semantic retrieval.
+FileTagger — AI layer for tagging, summarization, and deduplication.
+FileHubContext — Snapshot of structural context (channels, groups) used to group results and tags.
+Orchestrator — Manages full sync pipeline, persists states, and handles Slack UI updates.
+SearchService — Performs keyword and vector searches, applies filters, and computes relevance scores.
+SlackClient — Adapter for Slack’s Files and Conversations APIs.
+
+## State Diagram
+
+![ alt text](u2_state.png)
+
+stateDiagram-v2
+  [*] --> created
+  created --> syncing
+  syncing --> processing
+  processing --> indexing
+  indexing --> available
+  available --> refreshing
+  created --> failed
+  syncing --> failed
+  processing --> failed
+  indexing --> failed
+  refreshing --> failed
+
+Explanation:
+Jobs begin at created, transition to syncing while files are fetched, processing for dedup/tagging, indexing for vector insertion, then available once the File Hub is ready. Any step can fail, triggering retries.
+
+## Development Risks and Failures (Explained)
+
+File volume and rate limits — Slack file listing is rate-limited. Mitigation: pagination, caching, and incremental sync.
+Duplicate detection complexity — Similar files with slight edits may bypass hash check. Mitigation: fuzzy hash + LLM summary comparison.
+Cross-platform integration variance — Google Drive/SharePoint metadata models differ. Mitigation:standardized schema and source adapters.
+LLM latency and cost — Embedding and tagging may be slow. Mitigation: batch requests, async queue processing.
+PII exposure in tags — File text could contain names/emails. Mitigation: redaction layer and opt-out configuration.
+Search precision drift — Over-tagging reduces relevance. Mitigation: relevance feedback loop via user rating.
+
+## Technology Stack
+TypeScript (Node.js 20); Bolt for Slack + Fastify; AWS (Lambda/API Gateway, SQS, OpenSearch/pgvector); PostgreSQL; Redis; S3; OpenTelemetry; Jest, Pact, Playwright; Terraform; LLM provider (GPT-4-class, JSON mode).
+
+## APIs
+Incoming Slack
+
+POST /slack/events — Handles slash commands, File Hub events.
+
+POST /slack/interactions — Processes modals, search actions, tag edits.
+
+Internal REST
+
+POST /files/sync — Starts file sync job.
+
+GET /files/jobs/{id} — Returns job status + summary stats.
+
+GET /files/search?q= — Returns top file hits.
+
+POST /files/{id}/feedback — Accepts user relevance feedback.
+
+Service Interfaces (Methods)
+Orchestrator: startSync, harvestFiles, runDedup, tagAndIndex, renderFileHub, refreshIndex.
+FileTagger: generateTags, deduplicate, embed, extractText.
+SearchService: search, semanticSearch, suggestTags.
+SlackClient: listFiles, getFileInfo, postMessage, openView.
+
+##Public Interfaces (Methods & Contracts)
+Slash Command: /filehub
+Request: {team_id, user_id, text}
+Behavior: Opens File Hub modal or initiates resync.
+Home Tab:
+“My Files”, “Recently Updated”, “By Channel”, and “Search” sections.
+Interactive blocks for quick preview and tagging.
+Modals:
+File Detail Modal: metadata, AI-suggested tags, preview.
+Tag Edit Modal: allows adding/removing tags with autosuggestions.
+Search Modal: semantic + keyword search, filters by source/channel/date.
+
+
+
+## Data Schemas (Datatypes Included)
+
+![ alt text](u2_data.png)
+
+erDiagram
+    workspaces {
+        UUID id PK
+        TEXT slack_team_id UK
+        TEXT installer_user_id
+        TIMESTAMPTZ created_at
+    }
+
+    file_sync_jobs {
+        UUID id PK
+        UUID workspace_id FK
+        TEXT status
+        TEXT initiated_by_user_id
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    file_records {
+        UUID id PK
+        UUID workspace_id FK
+        TEXT external_id
+        TEXT source
+        TEXT name
+        TEXT mime_type
+        TEXT url
+        TEXT channel_id
+        TEXT[] tags
+        TEXT hash
+        BOOLEAN is_duplicate DEFAULT false
+        TIMESTAMPTZ created_at
+    }
+
+    file_embeddings {
+        UUID id PK
+        UUID file_id FK
+        VECTOR vector
+        TEXT model_version
+    }
+
+    file_feedback {
+        UUID id PK
+        UUID file_id FK
+        INT rating
+        TEXT comments
+        TIMESTAMPTZ created_at
+    }
+
+    workspaces ||--o{ file_sync_jobs : "workspace_id"
+    workspaces ||--o{ file_records : "workspace_id"
+    file_records ||--o{ file_embeddings : "file_id"
+    file_records ||--o{ file_feedback : "file_id"
+
+
+## Security and Privacy (Explained)
+Scoped permissions: Request files:read, files:write, chat:write, commands, usergroups:read.
+Data minimization: Store only metadata + hashes, not full file bodies.
+Encryption: TLS in transit, KMS-encrypted storage.
+Access controls: Workspace-scoped tokens; admin-only file deletion.
+Retention: Default 30 days for file metadata; configurable per workspace.
+DLP/Redaction: Sensitive terms and PII masked before indexing or embedding.
+Audit: Every sync and search request logged with userId, timestamp, and filters.
+
+## Risks to Completion (Explained)
+Slack API changes or deprecations — may break sync. Plan: monitor API changelog and add abstraction layer.
+External storage authorization friction — OAuth scopes for Drive/SharePoint can stall users. Plan: progressive consent model.
+Embedding scale cost — Large workspaces may incur high vector DB costs. Plan: lazy embed (on first access).
+Model drift — Tagging quality may degrade. Plan: monthly re-training with user feedback data.
+User confusion on hub purpose — Must differentiate from Slack search. Plan: onboarding tutorial and tooltips inside File Hub.
