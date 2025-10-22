@@ -178,6 +178,8 @@ Class Diagram
   Orchestrator --> Evaluator
   Orchestrator --> Policy
   Orchestrator --> SlackContext
+
+
 Explanation: The diagram shows persistence models (e.g., StructureJob, StructureProposal) and service classes (e.g., Orchestrator, Evaluator). Blueprints are abstract specifications the apply phase turns into concrete Slack API calls.
 ## List of Classes (Purpose & Responsibilities)
 
@@ -226,6 +228,7 @@ stateDiagram-v2
   generating --> failed
   review --> failed
   applying --> failed
+  
 Explanation (StructureJob): Jobs start at created, become intake_ready once the form is saved, move to generating while the AI runs, reach review for human approval, then applying to create resources, and finally done. Any step can fail with a captured reason and retry policy.
 
 
