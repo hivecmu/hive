@@ -1,9 +1,6 @@
-1 - Updated Backend Development Specifications
-User Story 1
-Header
+# User Story 1 Dev Spec
 
-
-**Title: AI-Generated Slack Workspace Structure (User Story #1)**
+## Title: AI-Generated Slack Workspace Structure (User Story #1)
 
 
 Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
@@ -21,7 +18,7 @@ Outcome: A Slack app that proposes and applies an information architecture (chan
 Primary KPIs: Time to first usable structure (<10 min), % proposals accepted without edits (>60%), channel sprawl reduction after 30 days (≥25%), PM satisfaction (CSAT ≥ 4/5).
 
 
-**Architecture Diagram**
+## Architecture Diagram
 
 ![ alt text](u1_arch.png)
 
@@ -81,7 +78,7 @@ Class Diagram
 
 
 
-**classDiagram**
+## classDiagram
 
 ![ alt text](u1_class.png)
   class StructureJob {
@@ -182,7 +179,7 @@ Class Diagram
   Orchestrator --> Policy
   Orchestrator --> SlackContext
 Explanation: The diagram shows persistence models (e.g., StructureJob, StructureProposal) and service classes (e.g., Orchestrator, Evaluator). Blueprints are abstract specifications the apply phase turns into concrete Slack API calls.
-**List of Classes (Purpose & Responsibilities)**
+## List of Classes (Purpose & Responsibilities)
 
 
 StructureJob — Tracks lifecycle of a generation/apply run. Owns status transitions, timestamps, and error handling.
@@ -212,7 +209,7 @@ Evaluator — Quality and safety gate. Scores coverage, finds duplicates, enforc
 SlackClient — Thin adapter around Slack Web API with retry/backoff and scope checks.
 
 
-**State Diagrams**
+## State Diagrams
 
 ![ alt text](u1_state.png)
 
@@ -232,7 +229,7 @@ stateDiagram-v2
 Explanation (StructureJob): Jobs start at created, become intake_ready once the form is saved, move to generating while the AI runs, reach review for human approval, then applying to create resources, and finally done. Any step can fail with a captured reason and retry policy.
 
 
-**Development Risks and Failures (Explained)**
+## Development Risks and Failures (Explained)
 
 
 Slack API rate limits — Creating many channels/invites may exceed quotas. Mitigation: queue operations, batch invites, exponential backoff, and dry‑run to estimate cost.
@@ -253,13 +250,13 @@ Security & PII leakage — Prompts may include personal data. Mitigation: option
 Change management & user confusion — Sudden channel creation can surprise teams. Mitigation: preview diffs, announcement posts, and rollback (archive newly created resources).
 
 
-**Technology Stack**
+## Technology Stack
 
 
 TypeScript (Node.js 20); Bolt for Slack + Fastify; AWS (Lambda/API Gateway, SQS), PostgreSQL + pgvector, Redis, S3; OpenTelemetry; Jest, Pact, Playwright; Terraform; LLM provider (e.g., GPT‑4‑class) with JSON mode.
 
 
-**APIs**
+## APIs
 
 
 Incoming Slack
@@ -295,7 +292,7 @@ Evaluator: validateNaming(proposal), validatePrivacy(proposal), detectDuplicates
 SlackClient: createChannel, setTopic, setPurpose, archiveChannel, createUserGroup, updateUserGroupMembers, inviteUsers, pinItem.
 
 
-**Public Interfaces (Methods & Contracts)**
+## Public Interfaces (Methods & Contracts)
 
 
 Slash Command /autostructure
@@ -334,7 +331,7 @@ Proposal Review Modal: dynamic blocks showing each blueprint with toggles (priva
 Confirmation Modal: shows dry‑run diff and estimated API calls; handler: onConfirmApply().
 
 
-**Data Schemas (Datatypes Included)**
+## Data Schemas (Datatypes Included)
 
 ![ alt text](u1_data.png)
 
@@ -413,7 +410,7 @@ erDiagram
     proposals ||--o{ feedback : "proposal_id"
     workspaces ||--o{ policies : "workspace_id"
 
-**Security and Privacy (Explained)**
+## Security and Privacy (Explained)
 
 
 Least‑privilege scopes — Request only what v1 needs (channels:manage, groups:write, users:read, usergroups:write, pins:write, commands, chat:write). This limits blast radius if tokens leak and eases app review.
@@ -437,7 +434,7 @@ PII redaction option — Pluggable DLP step masks emails/real names before sendi
 Abuse/safety guardrails — Policy engine blocks creation of channels matching restricted keywords (e.g., terms implying sensitive HR/medical topics) unless an admin overrides.
 
 
-**Risks to Completion (Explained)**
+## Risks to Completion (Explained)
 
 
 Slack App approval timing — Scopes and distribution review can delay launch. Plan: prepare scope rationale, sample screens, and security notes early; start private beta with non‑distributed app.
