@@ -1,200 +1,451 @@
-# Dev Spec — SA1: Project Hub Auto-Organizer (Consistency-Checked)
+1 - Updated Backend Development Specifications
+User Story 1
+Header
 
-## 0) Header  
-**Title:** SA1 – Project Hub Auto-Organizer  
-**Version:** v1.3 (2025-09-23)  
-**Authors:** Akeil (PM), Dev A (Backend), Dev B (Frontend), Dev C (Infra)  
-**Scope:** Consolidate files from multiple sources into a single searchable hub; dedupe (hash), tag (rules), and surface via web UI.  
-**Assumptions:** One org → many workspaces; OAuth to providers; read-only scopes where possible.
 
-**Rationale:** Establishes scope, ownership, and assumptions so all team members and reviewers start from the same baseline.
+Title: AI-Generated Slack Workspace Structure (User Story #1)
 
----
 
-## 1) Architecture Diagram (text)  
-### Components & where they run
-- **Client (Browser):** `DashboardPage`, `FileBrowser`, `SearchBar`, `SettingsPage`, `NotificationsPane` (React 18 + TS + Tailwind).  
-- **Backend (Cloud/Containers, Node 20 + TS):**  
-  `AuthGateway` (Clerk validation), `HubAPI` (REST+GraphQL), `ConnectorService`, `SyncOrchestrator`, `Ingestor`, `Normalizer`, `Deduplicator`, `Indexer` (PG FTS), `WebhookHandler`, `Scheduler`, `AuditLogger`, `AccessControl`.  
-- **Persistence:** **Postgres 16** (primary + FTS), **Blob Store** (S3/GCS previews/extracts), **Redis** (jobs/locks).  
-- **Integrations:** `GoogleDriveConnector`, `DropboxConnector`, `OneDriveConnector`, `NotionConnector`, `GitHubConnector`.
+Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
 
-### Information flows
-1. **Auth:** Client → `AuthGateway` (Clerk JWT) → `HubAPI`.  
-2. **Connector link:** Client → `HubAPI` → `ConnectorService` → Provider OAuth → secrets stored in PG.  
-3. **Full sync:** `Scheduler` → `SyncOrchestrator` → (`Ingestor` → `Normalizer` → `Deduplicator` → `Indexer`) → PG/Blob.  
-4. **Delta sync:** Provider → `WebhookHandler` → same pipeline.  
-5. **Search/Browse:** Client → `HubAPI` → PG (FTS).  
-6. **Audits:** Privileged actions → `AuditLogger` → PG.
 
-**Rationale:** Shows runtime boundaries, components, and data flow clearly, reducing risk of hidden dependencies.
+Version/Date: v1.1 — 2025‑10‑21
 
----
 
-## 2) Class Diagram (conceptual)  
-- **Services (backend):** `AuthGateway`, `HubAPI`, `ConnectorService`, `SyncOrchestrator`, `Ingestor`, `Normalizer`, `Deduplicator`, `Indexer`, `WebhookHandler`, `Scheduler`, `AuditLogger`, `AccessControl`.  
-- **Jobs:** `WorkerJob` ← {`FullSyncJob`, `DeltaSyncJob`, `WebhookJob`, `ReindexJob`}.  
-- **Connectors:** `ConnectorBase` ← {`GoogleDriveConnector`, `DropboxConnector`, `OneDriveConnector`, `NotionConnector`, `GitHubConnector`}.  
-- **Repositories:** `RepositoryBase` ← {`UserRepository`, `WorkspaceRepository`, `ConnectorRepository`, `FileRepository`, `TagRepository`, `AuditRepository`, `JobRepository`}.  
-- **Domain:** `FileEntity` aggregates `FileVersion` + `ExternalPointer`; many-to-many `Tag`.
+User Story: As a project manager, I want Slack to use AI to automatically generate and create an optimized structure for workspaces, channels, and subgroups so that communication is organized, clear, and scalable from the start without requiring manual setup.
 
-**Rationale:** Aligns code artifacts with architecture, ensuring design consistency across diagrams and lists.
 
----
+Outcome: A Slack app that proposes and applies an information architecture (channels, user groups, naming conventions, topics/purposes, and starter workflows) on Day 0, with human‑in‑the‑loop approval.
 
-## 3) List of Classes  
-### Client (React)
-- `DashboardPage`, `FileBrowser`, `SearchBar`, `SettingsPage`, `NotificationsPane`.
 
-### Backend (Node/TS)
-- `AuthGateway`, `HubAPI`, `ConnectorService`, `SyncOrchestrator`, `Ingestor`, `Normalizer`, `Deduplicator`, `Indexer`, `WebhookHandler`, `Scheduler`, `AuditLogger`, `AccessControl`.
+Primary KPIs: Time to first usable structure (<10 min), % proposals accepted without edits (>60%), channel sprawl reduction after 30 days (≥25%), PM satisfaction (CSAT ≥ 4/5).
 
-### Persistence & Integrations
-- Repos: `UserRepository`, `WorkspaceRepository`, `ConnectorRepository`, `FileRepository`, `TagRepository`, `AuditRepository`, `JobRepository`.  
-- Connectors: `GoogleDriveConnector`, `DropboxConnector`, `OneDriveConnector`, `NotionConnector`, `GitHubConnector`.
 
-**Rationale:** Prevents discrepancies by making every component explicit and traceable.
+Architecture Diagram
 
----
+flowchart LR
+ subgraph slack_client ["Slack Client (User Workspace)"]
+   H[Home Tab]
+   M[Config/Review Modal]
+   SC[/Slash Commands/]
+   SHT[(Shortcuts)]
+ end
 
-## 4) State Diagrams  
-### File lifecycle  
-`Discovered → Ingested → Normalized → Deduped → Indexed → Available`  
-Error states: `AuthExpired`, `RateLimited`, `ProviderError`, `IndexError`.
 
-### Connector lifecycle  
-`Unlinked → Linking → Linked → Active` (+ `Suspended`, `ReauthRequired`).
+ subgraph backend ["Backend (Cloud)"]
+   API[Events & Interactions API]
+   ORC[Orchestrator Service]
+   AI["AI Engine\n(LLM + Heuristics + Evaluator)"]
+   SLI[Slack Integration Layer]
+   DB[(PostgreSQL + pgvector)]
+   Q[(Queue)]
+   REDIS[(Redis Cache)]
+   S3[(Artifact Storage)]
+   OBS[(Telemetry/Logs)]
+ end
 
-**Rationale:** Defines valid state transitions to guide implementation and recovery.
 
----
+ subgraph third_party ["Third-Party"]
+   LLM[(Model Provider)]
+   DLP[(PII Redaction)]
+ end
 
-## 5) Flow Chart (primary scenario)  
-**First-time setup:** Login (Clerk) → Add Connector (Settings) → OAuth → `Linked` → Enqueue `FullSyncJob` → Ingest → Normalize → Deduplicate → Index → Files visible on Dashboard/FileBrowser.  
-**Secondary:** Provider webhook → Enqueue `WebhookJob` → pipeline → update hub.
 
-**Rationale:** Captures “happy path” and common workflows so devs align front and back.
+ SC --> API
+ SHT --> API
+ H <--> API
+ M <--> API
 
----
 
-## 6) Development Risks and Failures  
-- Token expiry → mark `ReauthRequired`; resume post re-auth.  
-- Webhook surge → queue depth alerts, idempotent jobs.  
-- FTS perf → GIN indexes, analyzer tuning.  
-- Dedupe errors → strict hash default, manual override.  
-- API drift → connector contract tests.  
-- Secrets compromise → KMS, rotation, revoke on leak.
+ API --> ORC
+ ORC -->|create job| DB
+ ORC -->|enqueue| Q
+ ORC --> AI
+ AI -->|proposal| DB
+ AI --> LLM
+ ORC --> SLI
+ SLI -->|"Slack Web API"| slack_platform[Slack Platform]
+ ORC --> S3
+ ORC --> OBS
+ ORC <--> REDIS
+ ORC --> DLP
 
-**Rationale:** Makes risks explicit with strategies, avoiding vague mitigation promises.
 
----
 
-## 7) Technology Stack  
-- **Frontend:** React 18 + TypeScript + Tailwind.  
-- **Backend:** Node 20 + TypeScript.  
-- **APIs:** REST (OpenAPI 3.1) + GraphQL.  
-- **Auth:** Clerk.  
-- **Data:** Postgres 16 (FTS), Redis, S3/GCS.  
-- **No ML, no observability (basic logs only).**
 
-**Rationale:** Lightweight stack reduces ops burden but delivers required features.
+Explanation: User actions in Slack (slash commands, shortcuts, Home, Modals) hit our Events/Interactions API. The Orchestrator creates a job, harvests Slack context via the Integration Layer, builds prompts and sends them to the AI Engine. The engine combines LLM output and rule‑based evaluation to yield a StructureProposal saved in PostgreSQL. The user reviews/edits in a modal; upon approval, the Orchestrator applies the blueprint via Slack Web API. Queue regulates rate‑limited operations. Redis stores short‑lived state/locks. S3 stores artifacts (prompt, proposal, diffs). Observability captures metrics and traces. Optional DLP redacts PII before prompts.
+2b. Information Flows: Trigger → Intake → Context Harvesting → Synthesis → Guardrails → Review → Apply → Audit/Feedback. Each step persists state to the database and emits telemetry.
+Class Diagram
 
----
 
-## 8) APIs (HubAPI)  
-### REST  
-- `POST /connectors` → create connector  
-- `POST /connectors/{id}/sync` → trigger sync  
-- `GET /files?query=&cursor=` → list files  
-- `GET /files/{id}` → file detail  
-- `POST /rules/dedupe` → update dedupe rules  
-- `GET /audits?filter=` → list audits  
-- `POST /webhooks/{provider}` → enqueue delta job
 
-### GraphQL  
-```graphql
-type File {
-  id: ID!
-  title: String!
-  mimeType: String
-  size: Int
-  owner: String
-  source: Source!
-  tags: [Tag!]!
-  versions: [FileVersion!]!
-  modifiedAt: String!
-  permalink: String
-}
+classDiagram
+  class StructureJob {
+    +UUID id
+    +String workspaceId
+    +JobStatus status
+    +String createdByUserId
+    +Instant createdAt
+    +Instant updatedAt
+    +start()
+    +advance(to: JobStatus)
+    +fail(reason: String)
+  }
 
-type Query {
-  files(filter: FileFilter, after: String): FileConnection!
-  file(id: ID!): File
-  tags: [Tag!]!
-}
+  class IntakeForm {
+    +UUID id
+    +UUID jobId
+    +String projectName
+    +String department
+    +String timeline
+    +String[] stakeholders
+    +String[] goals
+    +String[] constraints
+  }
 
-type Mutation {
-  createConnector(input: CreateConnectorInput!): Connector!
-  triggerSync(connectorId: ID!, mode: SyncMode!): Job!
-  upsertDedupeRules(input: DedupeRulesInput!): Boolean!
-}
-```
+  class SlackContext {
+    +User[] users
+    +Channel[] existingChannels
+    +UserGroup[] userGroups
+    +UsageSignals usage
+  }
 
-**Rationale:** Provides a stable, developer-friendly contract for clients.
+  class Policy {
+    +UUID id
+    +String type
+    +Map~String,Any~ rules
+    +validate(p: StructureProposal): ValidationResult
+  }
 
----
+  class StructureProposal {
+    +UUID id
+    +UUID jobId
+    +int version
+    +float score
+    +String rationale
+    +Blueprint[] blueprints
+    +revise(changes)
+    +summarize(): String
+    +toBlocks(): Blocks
+  }
 
-## 9) Public Interfaces  
-- Client ↔ HubAPI (REST/GraphQL).  
-- Provider ↔ WebhookHandler (signed POST).  
-- Admin ↔ HubAPI (`GET /audits`).
+  class Blueprint {
+    <<abstract>>
+    +String type
+    +String name
+    +String description
+    +Map settings
+    +String[] membersSeed
+    +Op[] ops
+    +UUID[] dependsOn
+  }
 
-**Rationale:** Defines external touchpoints clearly, preventing accidental exposure.
+  class ChannelBlueprint {
+  }
+  class UserGroupBlueprint {
+  }
 
----
+  class Orchestrator {
+    +buildPrompt(IntakeForm,SlackContext,Policy[]): Prompt
+    +generateProposal(jobId: UUID): StructureProposal
+    +applyProposal(proposalId: UUID): ApplyResult
+    +recordAudit(action: String, payload: Map)
+  }
 
-## 10) Data Schemas (Postgres 16)  
-- **users**: `id`, `email`, `name`, `org_id`, `created_at`  
-- **workspaces**: `id`, `org_id`, `name`, `settings`, `created_at`  
-- **connectors**: `id`, `workspace_id`, `provider`, `scopes`, `status`, `created_at`, `updated_at`  
-- **connector_secrets**: `connector_id`, `refresh_token`, `access_expires`, `provider_user_id`  
-- **files**: `id`, `workspace_id`, `title`, `mime_type`, `size`, `owner`, `source`, `hash_sha256`, `canonical_id`, `searchable_text`, `created_at`, `updated_at`  
-- **file_versions**: `id`, `file_id`, `external_pointer_id`, `version_no`, `modified_at`, `checksum_sha256`  
-- **external_pointers**: `id`, `provider`, `provider_file_id`, `permalink`, `cursor`  
-- **tags**: `id`, `workspace_id`, `name`, `kind`  
-- **file_tags**: `file_id`, `tag_id`  
-- **jobs**: `id`, `type`, `status`, `payload`, `retries`, `next_run`, `created_at`  
-- **audits**: `id`, `actor`, `action`, `resource`, `meta`, `at`
+  class Evaluator {
+    +scoreCoverage(StructureProposal): float
+    +detectDuplicates(StructureProposal): Issue[]
+    +enforcePolicies(StructureProposal,Policy[]): ValidationResult
+    +riskFlags(StructureProposal): Issue[]
+  }
 
-**Rationale:** Defines exact DB schema, ensuring devs and repos stay aligned.
+  class SlackClient {
+    +createChannel(name, isPrivate)
+    +setTopic(channelId, topic)
+    +createUserGroup(name)
+    +updateUserGroup(id, users[])
+    +invite(channelId, users[])
+    +pin(channelId, fileOrMessage)
+  }
 
----
+  StructureJob --> IntakeForm
+  StructureJob --> StructureProposal
+  StructureProposal o-- Blueprint
+  Blueprint <|-- ChannelBlueprint
+  Blueprint <|-- UserGroupBlueprint
+  Orchestrator --> SlackClient
+  Orchestrator --> Evaluator
+  Orchestrator --> Policy
+  Orchestrator --> SlackContext
+Explanation: The diagram shows persistence models (e.g., StructureJob, StructureProposal) and service classes (e.g., Orchestrator, Evaluator). Blueprints are abstract specifications the apply phase turns into concrete Slack API calls.
+List of Classes (Purpose & Responsibilities)
 
-## 11) Security & Privacy  
-- **AuthN:** Clerk (JWT validated server-side).  
-- **AuthZ:** AccessControl (RBAC).  
-- **Secrets:** Encrypted refresh tokens; rotated 90 days.  
-- **Transport:** TLS 1.3, secure cookies.  
-- **Webhooks:** HMAC signatures + nonce.  
-- **PII:** Limited to names/emails/provider IDs; only for auth/audit.  
-- **Retention:** Workspace deletions propagate to data.
 
-**Rationale:** Centralizes mandatory guarantees, protecting orgs and users.
+StructureJob — Tracks lifecycle of a generation/apply run. Owns status transitions, timestamps, and error handling.
 
----
 
-## 12) Risks to Completion  
-- OAuth edge cases → sandbox testing.  
-- PG FTS tuning → relevance fallback.  
-- Dedupe → start hash-only; manual overrides.  
-- Webhook scale → backpressure + idempotency.  
-- UX clarity → guided setup + health checks.
+IntakeForm — Captures human requirements that condition the proposal (scope, teams, goals, constraints).
 
-**Rationale:** Flags top blockers with mitigation, ensuring delivery on schedule.
 
----
+SlackContext — Snapshot of workspace metadata used to ground the model and prevent duplicates.
 
-## Final Consistency Check  
-- Classes in architecture, diagrams, lists, APIs, and schema all match.  
-- Public flows tie directly to REST/GraphQL endpoints.  
-- Schema aligns with entities referenced by jobs and APIs.  
-- Tech choices (Clerk, PG FTS, no ML/observability) are consistently applied.  
+
+Policy — Encapsulates rules (naming, privacy defaults, retention). Validates proposals and yields actionable violations.
+
+
+StructureProposal — Versioned container of one proposed IA; supports revision, summarization, and rendering to modal blocks.
+
+
+Blueprint — Abstract spec of a resource plus idempotent operations required to create/configure it. Specialized by ChannelBlueprint and UserGroupBlueprint.
+
+
+Orchestrator — Application core. Sequences steps, builds prompts, persists artifacts, and executes the apply phase with rate limiting.
+
+
+Evaluator — Quality and safety gate. Scores coverage, finds duplicates, enforces policies, and flags risks for human review.
+
+
+SlackClient — Thin adapter around Slack Web API with retry/backoff and scope checks.
+
+
+State Diagrams
+
+
+
+stateDiagram-v2
+  [*] --> created
+  created --> intake_ready
+  intake_ready --> generating
+  generating --> review
+  review --> approved
+  approved --> applying
+  applying --> done
+  created --> failed
+  intake_ready --> failed
+  generating --> failed
+  review --> failed
+  applying --> failed
+Explanation (StructureJob): Jobs start at created, become intake_ready once the form is saved, move to generating while the AI runs, reach review for human approval, then applying to create resources, and finally done. Any step can fail with a captured reason and retry policy.
+
+
+Development Risks and Failures (Explained)
+
+
+Slack API rate limits — Creating many channels/invites may exceed quotas. Mitigation: queue operations, batch invites, exponential backoff, and dry‑run to estimate cost.
+
+
+Insufficient permissions/scopes — The app might not have rights to read users or create channels. Mitigation: guided installation with explicit scope rationale; degrade gracefully with partial features.
+
+
+Low‑quality or hallucinated proposals — The model could suggest redundant or non‑compliant channels. Mitigation: strict policy validator, curated exemplars, JSON‑schema constrained outputs, and required human approval.
+
+
+Enterprise Grid complexity — Cross‑workspace nuances (shared channels, org‑level user groups). Mitigation: v1 targets a single workspace; v2 adds Grid‑aware mapping and admin options.
+
+
+Security & PII leakage — Prompts may include personal data. Mitigation: optional DLP redaction, field‑level controls, and short retention with auditability.
+
+
+Change management & user confusion — Sudden channel creation can surprise teams. Mitigation: preview diffs, announcement posts, and rollback (archive newly created resources).
+
+
+Technology Stack
+
+
+TypeScript (Node.js 20); Bolt for Slack + Fastify; AWS (Lambda/API Gateway, SQS), PostgreSQL + pgvector, Redis, S3; OpenTelemetry; Jest, Pact, Playwright; Terraform; LLM provider (e.g., GPT‑4‑class) with JSON mode.
+
+
+APIs
+
+
+Incoming Slack
+POST /slack/events — Verifies URL, receives app_mention, shortcuts; routes to command handlers.
+
+
+POST /slack/interactions — Handles modal submissions, button clicks, and view updates.
+
+
+Internal REST
+POST /structure/generate — Body: IntakeForm; Creates StructureJob, returns {jobId}.
+
+
+GET /structure/jobs/{id} — Returns job, status, current proposal (if any).
+
+
+POST /structure/proposals/{id}/approve — Applies proposal; returns ApplyResult with created resources.
+
+
+POST /structure/proposals/{id}/revise — Body: patch ops; returns new version.
+
+
+POST /structure/proposals/{id}/feedback — Body: {rating:int, comments:string}.
+
+
+Service Interfaces (Methods)
+Orchestrator: createJob(intake), harvestContext(jobId), buildPrompt(jobId), invokeAI(jobId), validate(jobId), renderForReview(jobId), apply(jobId), archive(jobId).
+
+
+Evaluator: validateNaming(proposal), validatePrivacy(proposal), detectDuplicates(proposal), scoreCoverage(proposal).
+
+
+SlackClient: createChannel, setTopic, setPurpose, archiveChannel, createUserGroup, updateUserGroupMembers, inviteUsers, pinItem.
+
+
+Public Interfaces (Methods & Contracts)
+
+
+Slash Command /autostructure
+
+
+Request: {team_id, user_id, channel_id, text}
+
+
+Behavior: Opens Intake Modal; creates job upon submit.
+
+
+Shortcut: “Generate structure from thread”
+
+
+Request: {message_ts, channel}
+
+
+Behavior: Seeds intake with thread summary.
+
+
+Home Tab
+
+
+Sections: Job status list, “Generate New” button, settings (naming policy, privacy defaults), history with diffs.
+
+
+Modals
+
+
+Intake Modal: fields {projectName, teams[], timeline, compliance[]}; submit → view_submission handler onIntakeSubmit().
+
+
+Proposal Review Modal: dynamic blocks showing each blueprint with toggles (private/public), edit name/topic, approve. Handlers: onProposalEdit(), onApprove().
+
+
+Confirmation Modal: shows dry‑run diff and estimated API calls; handler: onConfirmApply().
+
+
+Data Schemas (Datatypes Included)
+
+
+
+erDiagram
+    workspaces {
+        UUID id PK
+        TEXT slack_team_id UK "UNIQUE NOT NULL"
+        TEXT installer_user_id "NOT NULL"
+        TIMESTAMPTZ created_at "DEFAULT now() NOT NULL"
+        JSONB settings "DEFAULT '{}' NOT NULL"
+    }
+    
+    structure_jobs {
+        UUID id PK
+        UUID workspace_id FK
+        TEXT status "CHECK status IN ('created','intake_ready','generating','review','approved','applying','done','failed') NOT NULL"
+        TEXT created_by_user_id "NOT NULL"
+        TIMESTAMPTZ created_at "DEFAULT now() NOT NULL"
+        TIMESTAMPTZ updated_at "DEFAULT now() NOT NULL"
+    }
+    
+    intake_forms {
+        UUID id PK
+        UUID job_id FK
+        JSONB data "NOT NULL"
+    }
+    
+    proposals {
+        UUID id PK
+        UUID job_id FK
+        INT version "NOT NULL"
+        NUMERIC score "(3,2)"
+        TEXT rationale
+        JSONB payload "NOT NULL"
+    }
+    
+    blueprints {
+        UUID id PK
+        UUID proposal_id FK
+        TEXT type "CHECK type IN ('channel','user_group') NOT NULL"
+        TEXT name "NOT NULL"
+        TEXT description
+        JSONB settings "DEFAULT '{}' NOT NULL"
+        JSONB members_seed "DEFAULT '[]' NOT NULL"
+        JSONB depends_on "DEFAULT '[]' NOT NULL"
+    }
+    
+    policies {
+        UUID id PK
+        UUID workspace_id FK
+        TEXT type "NOT NULL"
+        JSONB rules "NOT NULL"
+    }
+    
+    audit_logs {
+        UUID id PK
+        UUID job_id FK
+        TEXT action "NOT NULL"
+        JSONB payload "NOT NULL"
+        TIMESTAMPTZ created_at "DEFAULT now() NOT NULL"
+    }
+    
+    feedback {
+        UUID id PK
+        UUID proposal_id FK
+        INT rating "CHECK rating BETWEEN 1 AND 5"
+        TEXT comments
+        TIMESTAMPTZ created_at "DEFAULT now() NOT NULL"
+    }
+    
+    workspaces ||--o{ structure_jobs : "workspace_id"
+    structure_jobs ||--o{ intake_forms : "job_id"
+    structure_jobs ||--o{ proposals : "job_id"
+    structure_jobs ||--o{ audit_logs : "job_id"
+    proposals ||--o{ blueprints : "proposal_id"
+    proposals ||--o{ feedback : "proposal_id"
+    workspaces ||--o{ policies : "workspace_id"
+
+Security and Privacy (Explained)
+
+
+Least‑privilege scopes — Request only what v1 needs (channels:manage, groups:write, users:read, usergroups:write, pins:write, commands, chat:write). This limits blast radius if tokens leak and eases app review.
+
+
+Data minimization — Store Slack IDs and metadata, not raw PII. When prompts require examples, replace names/emails with role labels. This reduces privacy risk and compliance burden.
+
+
+Encryption — TLS for all transport; KMS‑managed AES‑256 at rest for PostgreSQL and S3. Secrets (Slack tokens, model keys) live in Secrets Manager, never in env files.
+
+
+Access controls — Per‑workspace tokens; app operators access through SSO‑protected admin with role‑based permissions. Audit all apply operations.
+
+
+Retention & deletion — Default retention 30 days for proposals and logs; workspace admins can shorten/extend; hard delete supports right‑to‑erasure.
+
+
+PII redaction option — Pluggable DLP step masks emails/real names before sending prompts to LLMs hosted outside the workspace region.
+
+
+Abuse/safety guardrails — Policy engine blocks creation of channels matching restricted keywords (e.g., terms implying sensitive HR/medical topics) unless an admin overrides.
+
+
+Risks to Completion (Explained)
+
+
+Slack App approval timing — Scopes and distribution review can delay launch. Plan: prepare scope rationale, sample screens, and security notes early; start private beta with non‑distributed app.
+
+
+Model latency/cost — Generating rich proposals can be slow/expensive. Plan: cache prompts, use smaller models for drafts, and stream partial previews so users aren’t blocked.
+
+
+Heterogeneous customer policies — Teams have unique naming/visibility conventions. Plan: ship a policy editor and industry templates; make evaluator rules data‑driven.
+
+
+Testing data scarcity — Few real workspaces available pre‑launch. Plan: synthesize workspaces and maintain a “golden set” to regression‑test proposal quality.
+
+
+Organizational change resistance — Users may distrust automatic creation. Plan: emphasize preview/diff, provide a one‑click rollback (archive), and include onboarding content and tips.
