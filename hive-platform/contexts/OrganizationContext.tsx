@@ -3,7 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Organization, WorkspaceStructure } from '@/types/organization';
 import { getDatabase, MockDatabaseService } from '@/lib/mockDb';
+import { api } from '@/lib/api/client';
 import { toast } from 'sonner';
+
+const USE_REAL_BACKEND = process.env.NEXT_PUBLIC_USE_REAL_BACKEND === 'true';
 
 interface OrganizationContextType {
   // Current organization
@@ -44,36 +47,139 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     setIsLoading(true);
-    const allOrgs = db.getAllOrganizations();
-    const currOrg = db.getCurrentOrganization();
-    const currOrgId = db.getCurrentOrgId();
 
-    setOrganizations(allOrgs);
-    setCurrentOrg(currOrg);
-    setCurrentOrgId(currOrgId);
+    if (USE_REAL_BACKEND) {
+      // Load from real API
+      try {
+        const result = await api.workspaces.list();
+
+        if (result.ok) {
+          // Map backend workspaces to frontend Organization type
+          const orgs = result.value.map((ws: any) => ({
+            id: ws.id,
+            name: ws.name,
+            slug: ws.slug,
+            emoji: ws.emoji,
+            color: ws.color,
+            type: ws.type,
+            memberCount: ws.memberCount,
+            description: ws.description || '',
+            industry: ws.industry || '',
+            timezone: ws.timezone || 'UTC',
+            createdAt: ws.createdAt,
+            channels: [], // Will be loaded separately
+            workstreams: [],
+            committees: [],
+            directMessages: [],
+            workspace: {
+              coreChannels: [],
+              workstreams: [],
+              committees: [],
+              directMessages: [],
+              blueprintApproved: false,
+              blueprintVersion: 0,
+              blueprintData: null,
+              wizardData: null,
+            },
+            hub: {
+              sources: [],
+              files: [],
+              totalFiles: 0,
+              connectedSources: 0,
+              duplicatesCollapsed: 0,
+            },
+          }));
+
+          setOrganizations(orgs);
+
+          // Set first org as current if exists
+          if (orgs.length > 0) {
+            const savedOrgId = localStorage.getItem('hive_current_org_id');
+            const current = savedOrgId ? orgs.find(o => o.id === savedOrgId) : orgs[0];
+            if (current) {
+              setCurrentOrg(current);
+              setCurrentOrgId(current.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load organizations:', error);
+        toast.error('Failed to load workspaces');
+      }
+    } else {
+      // Use mock database
+      const allOrgs = db.getAllOrganizations();
+      const currOrg = db.getCurrentOrganization();
+      const currOrgId = db.getCurrentOrgId();
+
+      setOrganizations(allOrgs);
+      setCurrentOrg(currOrg);
+      setCurrentOrgId(currOrgId);
+    }
+
     setIsLoading(false);
   };
 
-  const switchOrganization = (orgId: string) => {
-    const success = db.switchOrganization(orgId);
-    if (success) {
-      const newOrg = db.getOrganization(orgId);
-      setCurrentOrg(newOrg);
-      setCurrentOrgId(orgId);
-      toast.success(`Switched to ${newOrg?.name || 'organization'}`);
+  const switchOrganization = async (orgId: string) => {
+    if (USE_REAL_BACKEND) {
+      try {
+        const result = await api.workspaces.get(orgId);
+        if (result.ok) {
+          localStorage.setItem('hive_current_org_id', orgId);
+          const newOrg = organizations.find(o => o.id === orgId);
+          if (newOrg) {
+            setCurrentOrg(newOrg);
+            setCurrentOrgId(orgId);
+            toast.success(`Switched to ${newOrg.name}`);
+          }
+        } else {
+          toast.error('Failed to switch workspace');
+        }
+      } catch (error) {
+        toast.error('Connection error');
+      }
     } else {
-      toast.error('Failed to switch organization');
+      const success = db.switchOrganization(orgId);
+      if (success) {
+        const newOrg = db.getOrganization(orgId);
+        setCurrentOrg(newOrg);
+        setCurrentOrgId(orgId);
+        toast.success(`Switched to ${newOrg?.name || 'organization'}`);
+      } else {
+        toast.error('Failed to switch organization');
+      }
     }
   };
 
-  const createOrganization = (org: Organization) => {
-    const createdOrg = db.createOrganization(org);
-    setCurrentOrg(createdOrg);
-    setCurrentOrgId(createdOrg.id);
-    setOrganizations(db.getAllOrganizations());
-    toast.success(`Created ${createdOrg.name}`);
+  const createOrganization = async (org: Organization) => {
+    if (USE_REAL_BACKEND) {
+      try {
+        const result = await api.workspaces.create({
+          name: org.name,
+          slug: org.name.toLowerCase().replace(/\s+/g, '-'),
+          type: org.type,
+          emoji: org.emoji,
+          color: org.color,
+        });
+
+        if (result.ok) {
+          toast.success(`Created ${org.name}`);
+          await loadData(); // Reload all organizations
+        } else {
+          toast.error(result.issues[0]?.message || 'Failed to create workspace');
+        }
+      } catch (error) {
+        toast.error('Connection error');
+      }
+    } else {
+      const createdOrg = db.createOrganization(org);
+      setCurrentOrg(createdOrg);
+      setCurrentOrgId(createdOrg.id);
+      setOrganizations(db.getAllOrganizations());
+      toast.success(`Created ${createdOrg.name}`);
+    }
   };
 
   const updateOrganization = (orgId: string, updates: Partial<Organization>) => {

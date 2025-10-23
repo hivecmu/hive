@@ -95,7 +95,10 @@ export function OrganizationWizard({ open, onClose, onComplete }: OrganizationWi
       timezone: formData.timezone,
       createdAt: new Date().toISOString(),
       workspace: {
-        ...template.defaultWorkspace,
+        coreChannels: template.defaultWorkspace.coreChannels || [],
+        workstreams: template.defaultWorkspace.workstreams || [],
+        committees: template.defaultWorkspace.committees || [],
+        directMessages: template.defaultWorkspace.directMessages || [],
         blueprintApproved: false, // Not approved yet - user needs to run wizard
         blueprintVersion: 0,
         blueprintData: null,

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { api } from "@/lib/api/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,14 +21,30 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock authentication - any email/password works
-    setTimeout(() => {
-      localStorage.setItem("hive_auth", JSON.stringify({ email, authenticated: true }));
-      // Set cookie for middleware
-      document.cookie = "hive_authenticated=true; path=/; max-age=86400"; // 1 day
-      toast.success("Welcome back!");
-      router.push("/app");
-    }, 1000);
+    try {
+      // Real API authentication
+      const result = await api.auth.login({ email, password });
+
+      if (result.ok) {
+        // Token is automatically stored by api.auth.login
+        // Set cookie for middleware
+        document.cookie = "hive_authenticated=true; path=/; max-age=86400"; // 1 day
+
+        // Also set old localStorage for backward compatibility during migration
+        localStorage.setItem("hive_auth", JSON.stringify({ email, authenticated: true }));
+
+        toast.success("Welcome back!");
+        router.push("/app");
+      } else {
+        // Handle login failure
+        const errorMessage = result.issues[0]?.message || "Login failed";
+        toast.error(errorMessage);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      toast.error("Connection error. Please check if the backend is running.");
+      setIsLoading(false);
+    }
   };
 
   return (
