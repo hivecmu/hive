@@ -494,4 +494,4 @@ Adoption risk — Users wary of auto‑creation. Plan: emphasize dry‑run diffs
 
 
 
-LLM Chatlog: https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
+LLM (GPT 5) Chatlog: https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
