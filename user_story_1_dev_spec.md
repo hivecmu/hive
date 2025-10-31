@@ -1,52 +1,45 @@
-# User Story 1
-## 1. Header
-
-
-Title: AI‑Generated Slack Workspace Structure — Simplified v1 (User Story #1)
-
-
+User Story 1
+Version/Date: v4.0 — 2025-10-31
 Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
+1. Header
+Title: AI-Generated Slack Workspace Structure — Simplified v1 (User Story #1)
+User Story:
+As a project team, we want Slack to use AI to automatically generate and create an optimized structure for workspaces, channels, and subgroups so that communication is organized, clear, and scalable from the start without requiring manual setup.
+Outcome:
+A Slack app that proposes and applies a best-practice information architecture (channels, user groups, naming conventions, topics/purposes, and starter workflows) on Day 0, with human-in-the-loop approval.
+Primary KPIs:
+Time to first usable structure: <10 minutes
+Percentage of proposals accepted without edits: >60%
+Channel sprawl reduction after 30 days: ≥25%
+Team satisfaction (CSAT): ≥4/5
 
+2. Architecture Diagram
 
-Version/Date: v2.0 — 2025‑10‑22
-
-
-User Story: As a project manager, I want Slack to use AI to automatically generate and create an optimized structure for workspaces, channels, and subgroups so that communication is organized, clear, and scalable from the start without requiring manual setup.
-
-
-Outcome: A Slack app that proposes and applies a best‑practice information architecture (channels, user groups, naming conventions, topics/purposes, and starter workflows) on Day 0, with human‑in‑the‑loop approval.
-
-
-Primary KPIs: Time to first usable structure (<10 min), % proposals accepted without edits (>60%), channel sprawl reduction after 30 days (≥25%), PM satisfaction (CSAT ≥ 4/5).
-
-
-## 2. Architecture Diagram
-
-![ alt text](u1_arch.png)
+![ alt text](1A.png)
 
 flowchart LR
-  subgraph Slack_Client[Slack Client (User Workspace)]
+  subgraph SlackClient[Slack Client (User Workspace)]
     H[Home Tab]
-    M[Config/Review Modal]
-    SC[/Slash Commands/]
+    M[ConfigReviewModal]
+    SC[/SlashCommands/]
     SHT[(Shortcuts)]
   end
 
   subgraph Backend[Backend (Cloud)]
-    API[Events & Interactions API]
-    JOB[JobService + StateMachine]
-    GEN[Generator (LLM + Heuristics)]
-    VAL[Validator (Policy + Quality)]
-    APP[ApplyService]
-    SGW[SlackGateway]
+    API[EventsAndInteractionsAPI]
+    JobService[JobService + StateMachine]
+    Generator[Generator (LLM + Heuristics)]
+    Validator[Validator (Policy + Quality)]
+    ApplyService[ApplyService]
+    SlackGateway[SlackGateway]
     DB[(PostgreSQL + pgvector)]
-    Q[(Queue)]
-    	    REDIS[(Redis Cache/Locks)]
+    Queue[(Queue)]
+    Redis[(Redis Cache/Locks)]
     S3[(Artifact Storage)]
-    OBS[(Telemetry/Logs)]
+    Observability[(Telemetry/Logs)]
   end
 
-  subgraph Third_Party[Third‑Party]
+  subgraph ThirdParty[Third-Party]
     LLM[(Model Provider)]
     DLP[(PII Redaction)]
   end
@@ -56,33 +49,39 @@ flowchart LR
   H <--> API
   M <--> API
 
-  API --> JOB
-  JOB -->|persist| DB
-  JOB -->|enqueue| Q
-  JOB -->|harvest ctx| SGW
-  JOB -->|prep prompts| GEN
-  GEN -->|use rules| VAL
-  GEN --> LLM
-  GEN -->|proposal| DB
-  VAL -->|validate & score| DB
-  JOB -->|render for review| API
-  API --> JOB
-  JOB -->|apply| APP
-  APP --> SGW
-  APP -->|audit| DB
-  JOB --> S3
-  JOB --> OBS
-  JOB <--> REDIS
-  JOB --> DLP
-Explanation: Slack surfaces (Home, Modals, slash commands, shortcuts) invoke the Events/Interactions API. JobService orchestrates the run: persisting state, optional context harvest via SlackGateway, prompting the Generator, and calling the Validator to enforce policy and score quality. The PM reviews the proposal; upon approval, ApplyService uses SlackGateway to create resources. Queue smooths rate limits, Redis holds short‑lived state/locks, S3 stores artifacts (prompts, proposals, diffs), and Observability traces the flow. Optional DLP redacts PII in prompts.
-Information Flows: Trigger → Intake → Context Harvest → Generation → Validation → Review → Approval → Apply → Audit/Feedback. Each step persists to DB and emits telemetry to OBS.
+  API --> JobService
+  JobService -->|persist| DB
+  JobService -->|enqueue| Queue
+  JobService -->|harvestContext| SlackGateway
+  JobService -->|preparePrompts| Generator
+  Generator -->|useRules| Validator
+  Generator --> LLM
+  Generator -->|proposal| DB
+  Validator -->|validateAndScore| DB
+  JobService -->|renderForReview| API
+  JobService -->|apply| ApplyService
+  ApplyService --> SlackGateway
+  ApplyService -->|audit| DB
+  JobService --> S3
+  JobService --> Observability
+  JobService <--> Redis
+  JobService --> DLP
 
-## 3. Class Diagram
+Explanation:
+Slack’s user actions (like using a slash command or opening a modal) trigger the EventsAndInteractionsAPI, which starts a job managed by the JobService.
+The JobService coordinates all steps—saving progress, gathering workspace data through SlackGateway, and preparing prompts for the Generator, which uses an LLM to suggest a proposed structure.
+The Validator checks this proposal against internal policies and quality rules before sending it back to the team for review.
+After approval, the ApplyService automatically builds the new channels and groups in Slack.
+Data is stored in PostgreSQL, temporary states in Redis, and all events are logged through Observability for auditing.
+Optional DLP ensures sensitive data is masked before sending anything to the AI model.
+Information Flow:
+Trigger → Intake → ContextHarvest → Generation → Validation → Review → Approval → Apply → Audit
 
-![ alt text](u1_class.png)
+3. Class Diagram
+
+![ alt text](1C.png)
 
 classDiagram
-  %% Entities / Value Objects
   class StructureJob {
     +UUID id
     +String workspaceId
@@ -102,16 +101,16 @@ classDiagram
   }
 
   class Blueprint {
-    +String resourceType  // channel | user_group
+    +String resourceType
     +String name
     +String description
-    +Map settings         // topic, purpose, privacy, retention
+    +Map settings
     +String[] membersSeed
-    +Op[] ops             // create, invite, set-topic, pin
+    +Op[] ops
     +UUID[] dependsOn
   }
 
-  class Policy { +Map~String,Any~ rules }  %% data-only
+  class Policy { +Map~String,Any~ rules }
   class ContextPackage { +IntakeForm intake; +SlackContext workspace }
   class IntakeForm { +String projectName; +String[] goals; +String[] constraints; +String timeline; +String department; +String[] stakeholders }
   class SlackContext { +User[] users; +Channel[] existingChannels; +UserGroup[] userGroups; +UsageSignals usage }
@@ -121,22 +120,21 @@ classDiagram
   class Blocks
   class Prompt
 
-  %% Services
   class JobService {
-    +create(intake: IntakeForm): StructureJob
-    +advance(jobId: UUID, to: JobStatus)
-    +fail(jobId: UUID, reason: String)
-    +harvestContext(jobId: UUID): ContextPackage
-    +buildPrompt(jobId: UUID): Prompt
-    +renderForReview(jobId: UUID): Blocks
+    +create(IntakeForm)
+    +advance(UUID, JobStatus)
+    +fail(UUID, String)
+    +harvestContext(UUID)
+    +buildPrompt(UUID)
+    +renderForReview(UUID)
   }
 
-  class Generator { +generate(ctx: ContextPackage, policy: Policy): StructureProposal }
+  class Generator { +generate(ContextPackage, Policy): StructureProposal }
   class Validator {
-    +validate(p: StructureProposal, policy: Policy): ValidationResult
-    +score(p: StructureProposal): float
+    +validate(StructureProposal, Policy): ValidationResult
+    +score(StructureProposal): float
   }
-  class ApplyService { +apply(p: StructureProposal): ApplyResult }
+  class ApplyService { +apply(StructureProposal): ApplyResult }
   class SlackGateway {
     +conversationsCreate(name, isPrivate)
     +conversationsSetTopic(channelId, topic)
@@ -157,341 +155,237 @@ classDiagram
   JobService --> Validator
   ApplyService --> StructureProposal
   ApplyService --> SlackGateway
-Explanation: Entities are lean (data‑only) and services have single responsibilities. Policy is a data container; Validator handles both policy enforcement and quality scoring. A single Blueprint type covers channels and user groups via resourceType and typed settings.
-## 4. List of Classes
+
+Explanation:
+Each class has a focused role.
+StructureJob keeps track of the overall process.
+StructureProposal stores what the AI suggests, including channels or groups.
+Blueprint defines what gets created in Slack and how.
+Policy and Validator ensure results follow naming and privacy rules.
+ApplyService builds the approved structure in Slack through SlackGateway, which directly calls Slack’s API.
+Together, these classes form a clear, modular system that separates decision-making (AI) from execution (Slack integration).
 
 
-StructureJob — Persistent record of a run; holds status, timestamps, and ownership. No domain logic.
+4. List of Classes
+The following classes define the core entities, logic components, and service interfaces that support automated workspace structure generation. Each class has a specific, clearly scoped purpose within the overall workflow.
+StructureJob
+Serves as the persistent record for each workflow run. It tracks job status, ownership, and timestamps from creation through completion, enabling full process traceability.
+StructureProposal
+Contains the versioned AI-generated proposal for workspace structure creation. Includes rationale, quality score, and the list of associated blueprints to be applied.
+Blueprint
+Defines the declarative instructions for Slack resources such as channels and user groups. Each blueprint specifies configuration details, dependencies, and operations to be executed in sequence.
+Policy
+Stores all workspace-specific naming, privacy, and retention rules enforced by the Validator. Provides a flexible framework for standardizing configurations across different teams.
+ContextPackage
+Combines user-provided intake data with harvested workspace metadata, forming a single, contextualized input for the AI generation process.
+IntakeForm
+Captures key project details supplied by the team, including goals, constraints, timeline, and department context. This ensures the AI output reflects user intent and scope.
+SlackContext
+Represents a current snapshot of the workspace, including users, existing channels, user groups, and engagement metrics. Enables informed and relevant proposal generation.
+ApplyResult
+Records the outcomes of the apply phase, listing all newly created Slack entities—such as channels and user groups—along with their identifiers for audit purposes.
+ValidationResult / Issue
+Summarizes the results of policy enforcement and proposal validation. Each issue entry includes a code, message, and severity to guide revisions and ensure compliance.
+JobService
+Acts as the orchestrator of the workflow. It manages job lifecycle transitions, builds prompts, and connects all system components from generation to validation and apply.
+Generator
+Uses the LLM and heuristic logic to create the proposed workspace structure. Focuses on clarity, organization, and adherence to best-practice communication design.
+Validator
+Enforces workspace policies, detects duplicates or violations, and computes a composite quality score. Supports both automated checks and manual approval workflows.
+ApplyService
+Executes approved changes safely within Slack. Handles retries, batching, and rollback for reliability and user confidence during deployment.
+SlackGateway
+Provides a secure, modular interface for interacting with Slack’s API. Abstracts operations such as creating channels, setting topics, and managing user groups.
+Blocks
+Represents reusable Slack UI elements (Block Kit components) used to build modals, dashboards, and review views within the Slack client interface.
+Prompt
+Defines the structured instruction templates and contextual parameters sent to the LLM. Every prompt is stored for auditability, reproducibility, and model-tuning analysis.
 
 
-StructureProposal — Versioned proposal with rationale, score, and the list of Blueprints to apply.
+5. State Diagram
 
-
-Blueprint — Declarative spec for a Slack resource and the idempotent operations (ops) needed to create/configure it.
-
-
-Policy — Data‑only rules (naming, privacy, retention) consumed by Validator.
-
-
-ContextPackage — Combines user‑provided intake with harvested workspace metadata for generation.
-
-
-IntakeForm — Human inputs: scope, goals, constraints, stakeholders, timeline.
-
-
-SlackContext — Snapshot of users, channels, groups, and usage signals.
-
-
-ApplyResult — Outputs from the apply phase (ids/names of created resources).
-
-
-ValidationResult/Issue — Results of policy enforcement and quality checks.
-
-
-JobService — Sequences the run, manages state transitions, builds prompts, and renders review blocks.
-
-
-Generator — Produces a proposal from ContextPackage + Policy using LLM + heuristics.
-
-
-Validator — Enforces policy, detects duplicates/gaps, and computes an overall score.
-
-
-ApplyService — Executes Blueprint.ops via SlackGateway with retry/backoff and auditing.
-
-
-SlackGateway — Thin adapter over Slack Web API; no domain logic.
-
-
-## 5. State Diagram
-
-![ alt text](u1_state.png)
+![ alt text](1S.png)
 
 stateDiagram-v2
-  [*] --> created
-  created --> intake_ready
-  intake_ready --> generating
-  generating --> review
-  review --> approved
-  approved --> applying
-  applying --> done
-  created --> failed
-  intake_ready --> failed
-  generating --> failed
-  review --> failed
-  applying --> failed
-Explanation: Jobs progress linearly with a human approval gate. Any state can transition to failed with a reason; retries move back to the prior state.
-## 6. Flow Chart
+  [*] --> Created
+  Created --> IntakeReady
+  IntakeReady --> Generating
+  Generating --> Review
+  Review --> Approved
+  Approved --> Applying
+  Applying --> Done
+  Created --> Failed
+  IntakeReady --> Failed
+  Generating --> Failed
+  Review --> Failed
+  Applying --> Applying : Retry/Backoff
 
-![ alt text](u1_flow.png)
+Explanation:
+Each job moves through predictable stages—from creation to completion—with a human approval step before applying.
+If something goes wrong (like missing data or API errors), it transitions to Failed.
+Retry mechanisms allow the team to recover from temporary issues (like network errors) without restarting from scratch.
 
+6. Flow Chart
 Scenario Label: SC1 — Generate and Apply Workspace Structure (User Story #1)
-Prose: A PM starts generation in Slack; the system collects inputs, harvests context, generates a proposal, validates it, presents it for approval, and applies it on approval. Each box maps to the state diagram.
 
+![ alt text](1F.png)
 
 flowchart TD
-  start((START)) --> A[PM runs "/autostructure"\n[created]]
-  A --> B[Intake Modal completed\n[intake_ready]]
+  Start((Start)) --> A[Team runs "/autostructure" Command\n[Created]]
+  A --> B[Intake Modal Completed\n[IntakeReady]]
   B --> C{Harvest Slack Context?}
-  C -- Yes --> D[Fetch users/channels/apps\n[intake_ready]]
-  C -- No --> G[Build Prompt + Policies\n[generating]]
-  D --> E[Context snapshot saved\n[intake_ready]]
+  C -- Yes --> D[Fetch Users/Channels/Groups\n[IntakeReady]]
+  C -- No --> G[BuildPromptAndPolicies\n[Generating]]
+  D --> E[Context Snapshot Saved\n[IntakeReady]]
   E --> G
-  G --> H[Generate Proposal (Generator)\n[generating]]
-  H --> I[Validate + Score (Validator)\n[generating]]
-  I --> J[Render & Review in Modal/Home\n[review]]
-  J -- Approve --> JA[Mark Approved\n[approved]]
-  JA --> K[Apply via SlackGateway (ApplyService)\n[applying]]
-  J -- Request Changes --> H
-  K --> L[Pin Docs & Invite Groups\n[applying]]
-  L --> M[(Audit Log + Feedback)]
-  M --> done((END\n[done]))
-Explanation: The flow aligns with the simplified services and the state diagram, including the explicit approved step before applying.
-## 7. Development Risks and Failures
+  G --> H[GenerateProposal (Generator)\n[Generating]]
+  H --> I[ValidateAndScore (Validator)\n[Generating]]
+  I --> J[RenderAndReviewInModal/Home\n[Review]]
+  J -- Approve --> JA[MarkApproved\n[Approved]]
+  JA --> K[ApplyViaSlackGateway (ApplyService)\n[Applying]]
+  J -- RequestChanges --> H
+  K --> L[PinDocsAndInviteGroups\n[Applying]]
+  L --> M[(AuditLogAndFeedback)]
+  M --> Done((End\n[Done]))
+
+Explanation:
+This flow shows how a workspace structure is created:
+The team starts the process with a slash command.
+They fill out a short intake form describing goals and constraints.
+The system gathers context from Slack (users, channels).
+The AI Generator builds a proposal and the Validator checks it for quality.
+The team reviews it in Slack—approving or requesting changes.
+Once approved, the structure is applied automatically and logged for future review.
+
+7. Development Risks and Mitigations
+The team identified several key risks that could impact performance, user trust, or data safety during implementation of the workspace-generation feature. Each risk includes a clear description and corresponding mitigation plan.
+Slack API Rate Limits
+Too many rapid operations—such as channel creation or user invitations—may trigger throttling by Slack’s API.
+Mitigation: Implement queuing, batch invitations, and exponential backoff to safely manage request flow and avoid rate-limit errors.
+Insufficient Permissions
+Missing or misconfigured API scopes could block critical operations like creating channels or inviting users.
+Mitigation: Provide a guided installation process that clearly explains required scopes and ensure graceful fallback behavior when permissions are missing.
+Low-Quality Proposals
+The AI may occasionally generate redundant, irrelevant, or poorly structured channels.
+Mitigation: Enforce strict policy validation, apply schema checks, and include a mandatory human approval step before changes are finalized.
+Enterprise Grid Complexity
+Multi-workspace Slack environments introduce synchronization and data-sharing challenges.
+Mitigation: Limit Version 1 to single-workspace support, then incrementally expand to Enterprise Grid once core stability is proven.
+Security or PII Leakage
+Prompts or logs could unintentionally include sensitive information such as personal names or email addresses.
+Mitigation: Offer an optional Data Loss Prevention (DLP) layer that redacts PII and replaces identifiers with anonymized role labels before processing.
+Change Management
+Users may be surprised or confused by automated workspace creation and configuration.
+Mitigation: Provide clear previews of proposed changes, post transparent announcements, and include rollback or archival options to maintain user confidence.
 
 
-Slack API rate limits — Burst creates/invites can hit limits. Mitigation: queue ops, batch invites, exponential backoff, and pre‑flight estimates.
-
-
-Insufficient permissions/scopes — Missing rights to read users or create resources. Mitigation: guided install with scope rationale; degrade gracefully (e.g., propose only).
-
-
-Low‑quality proposals — Redundant/non‑compliant channels. Mitigation: policy‑driven validation, curated examples, schema‑constrained outputs, mandatory human approval.
-
-
-Enterprise Grid complexity — Cross‑workspace/shared channels. Mitigation: v1 targets single workspace; v2 adds Grid mapping and org‑level settings.
-
-
-Security/PII leakage — Names/emails in prompts. Mitigation: optional DLP, role‑label replacement, minimal retention, auditable access.
-
-
-Change management — Users surprised by auto‑creation. Mitigation: preview diffs, announcement posts, and rollback/archival of newly created entities.
-
-
-## 8. Technology Stack
-
-
-Language/Runtime: TypeScript on Node.js 20
-
-
-Frameworks: Bolt for Slack (Events/Interactivity), Fastify (REST)
-
-
-Infra: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X‑Ray or OpenTelemetry
-
-
+8. Technology Stack
+Language/Runtime: TypeScript (Node.js 20)
+Frameworks: Bolt for Slack (Events & Interactivity), Fastify (REST API)
+Infrastructure: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X-Ray or OpenTelemetry for end-to-end observability
 Data: PostgreSQL + pgvector, Redis, S3
+AI: GPT-5 LLM with JSON schema validation (structured, deterministic outputs for safe backend integration)
+CI/CD: GitHub Actions, Terraform (Infrastructure as Code)
+Testing: Jest (unit), Pact (contract), Playwright (UI flows), k6 (load & apply-phase)
 
 
-AI: LLM (GPT‑4‑class), prompt templates, JSON schema enforcement
+9. APIs
+Incoming Slack APIs
+POST /slack/events — Receives event data and app mentions.
+POST /slack/interactions — Handles modals, buttons, and block actions.
+Internal REST APIs
+POST /jobs — Creates a StructureJob.
+GET /jobs/{id} — Returns job status and proposal data.
+POST /jobs/{id}/harvest — Gathers Slack context.
+POST /jobs/{id}/generate — Runs Generator to create a proposal.
+POST /jobs/{id}/validate — Validates and scores proposals.
+POST /proposals/{id}/approve — Marks as approved.
+POST /proposals/{id}/apply — Executes ApplyService.
+POST /proposals/{id}/feedback — Stores user feedback.
 
-
-CI/CD: GitHub Actions, IaC with Terraform
-
-
-Testing: Jest, Pact (Slack contracts), Playwright (UI flows), k6 (apply‑phase load)
-
-
-## 9. APIs
-
-
-Incoming Slack
-POST /slack/events — Verifies URL; receives events/app_mentions; routes to command handlers.
-
-
-POST /slack/interactions — Handles view_submission, buttons, and block actions.
-
-
-Internal REST
-POST /jobs — Body: IntakeForm; creates a StructureJob; returns { jobId }.
-
-
-GET /jobs/{id} — Returns job status and current proposal if present.
-
-
-POST /jobs/{id}/harvest — Triggers context harvest; returns ContextPackage summary.
-
-
-POST /jobs/{id}/generate — Runs Generator; returns StructureProposal (versioned).
-
-
-POST /jobs/{id}/validate — Runs Validator; returns ValidationResult + score.
-
-
-POST /proposals/{id}/approve — Marks proposal approved and advances job.
-
-
-POST /proposals/{id}/apply — Executes ApplyService; returns ApplyResult.
-
-
-POST /proposals/{id}/feedback — { rating:int, comments:string } stored for tuning.
-
-
-Service Interfaces (selected methods)
-JobService: create(), advance(), fail(), harvestContext(), buildPrompt(), renderForReview().
-
-
-Generator: generate(ctx, policy).
-
-
-Validator: validate(proposal, policy) -> ValidationResult, score(proposal) -> float.
-
-
-ApplyService: apply(proposal) -> ApplyResult.
-
-
-SlackGateway: conversationsCreate, conversationsSetTopic, conversationsSetPurpose, conversationsInvite, usergroupsCreate, usergroupsUsersUpdate, pinsAdd, conversationsArchive.
-
-
-## 10. Public Interfaces
-
-
-Slash Command /autostructure
-
-
-Request: { team_id, user_id, channel_id, text }
-
-
-Behavior: Opens Intake Modal; creates job on submit.
-
-
-Shortcut: “Generate structure from thread”
-
-
-Request: { message_ts, channel }
-
-
-Behavior: Seeds IntakeForm with thread context.
-
-
+10. Public Interfaces
+This feature provides several user-facing interaction points within Slack, each designed to guide the team smoothly through the workspace structure generation process — from initial setup to review and confirmation.
+Slash Command — /autostructure
+Initiates the intake and creation process. When the command is run, it launches the intake workflow where users can provide project details to begin generating a workspace structure.
+Shortcut — “Generate Structure from Thread”
+Allows users to trigger structure generation directly from an existing Slack conversation. It automatically seeds the IntakeForm with relevant context, saving time and maintaining discussion continuity.
 Home Tab
+Serves as the central dashboard within Slack. It displays current jobs, past generations, and quick-access actions for creating new structures or managing existing ones.
+Intake Modal
+Collects essential setup information from the user, including project goals, constraints, timelines, and key participants. This ensures the AI proposal aligns with the team’s requirements.
+Proposal Review Modal
+Presents the AI-generated structure for user review. The team can make edits, approve, or request changes before the structure is finalized, ensuring transparency and control.
+Confirmation Modal
+Provides a final summary of proposed changes, including expected channel and group creations. Users can confirm or cancel before any updates are applied to the workspace.
 
 
-Sections: Job list/status, “Generate New” CTA, settings (naming policy, privacy defaults), history with diffs.
+11. Data Schemas (SQL DDL)
+![ alt text](1D.png)
 
+erDiagram
+    Workspaces ||--o{ StructureJobs : has
+    StructureJobs ||--o{ IntakeForms : has
+    StructureJobs ||--o{ Proposals : has
+    Proposals ||--o{ Blueprints : contains
+    Workspaces ||--o{ Policies : has
+    StructureJobs ||--o{ AuditLogs : generates
+    Proposals ||--o{ Feedback : collects
+    StructureJobs ||--o{ Artifacts : produces
 
-Modals
+    Workspaces {
+      UUID id PK
+      string slack_team_id "UNIQUE NOT NULL"
+      string installer_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      jsonb settings "NOT NULL DEFAULT {}"
+    }
 
+    StructureJobs {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string status "ENUM created|intake_ready|generating|review|approved|applying|done|failed"
+      string created_by_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      timestamptz updated_at "DEFAULT now()"
+    }
 
-Intake Modal: { projectName, teams[], timeline, constraints[] } → view_submission → JobService.create().
+    IntakeForms {
+      UUID id PK
+      UUID job_id FK "-> StructureJobs.id"
+      jsonb data "NOT NULL"
+    }
 
-
-Proposal Review Modal: blocks for each blueprint with privacy toggle, name/topic edits; handlers: onProposalEdit, onApprove.
-
-
-Confirmation Modal: dry‑run diff and estimated API calls; handler: onConfirmApply.
-
-
-## 11. Data Schemas (SQL DDL)
-
-![ alt text](u1_data.png)
-
-CREATE TABLE workspaces (
-  id                UUID PRIMARY KEY,
-  slack_team_id     TEXT UNIQUE NOT NULL,
-  installer_user_id TEXT NOT NULL,
-  created_at        TIMESTAMPTZ DEFAULT now() NOT NULL,
-  settings          JSONB DEFAULT '{}'::jsonb NOT NULL
-);
-
-CREATE TABLE structure_jobs (
-  id                 UUID PRIMARY KEY,
-  workspace_id       UUID REFERENCES workspaces(id) ON DELETE CASCADE,
-  status             TEXT CHECK (status IN ('created','intake_ready','generating','review','approved','applying','done','failed')) NOT NULL,
-  created_by_user_id TEXT NOT NULL,
-  created_at         TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at         TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-
-CREATE TABLE intake_forms (
-  id        UUID PRIMARY KEY,
-  job_id    UUID REFERENCES structure_jobs(id) ON DELETE CASCADE,
-  data      JSONB NOT NULL
-);
-
-CREATE TABLE proposals (
-  id        UUID PRIMARY KEY,
-  job_id    UUID REFERENCES structure_jobs(id) ON DELETE CASCADE,
-  version   INT NOT NULL,
-  score     NUMERIC(5,2),
-  rationale TEXT,
-  payload   JSONB NOT NULL
-);
-
-CREATE TABLE policies (
-  id           UUID PRIMARY KEY,
-  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
-  rules        JSONB NOT NULL
-);
-
-CREATE TABLE audit_logs (
-  id         UUID PRIMARY KEY,
-  job_id     UUID REFERENCES structure_jobs(id) ON DELETE CASCADE,
-  action     TEXT NOT NULL,
-  payload    JSONB NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-
--- Blueprints are embedded in proposals.payload, but optional breakout table:
-CREATE TABLE blueprints (
-  id           UUID PRIMARY KEY,
-  proposal_id  UUID REFERENCES proposals(id) ON DELETE CASCADE,
-  resource_type TEXT CHECK (resource_type IN ('channel','user_group')) NOT NULL,
-  name         TEXT NOT NULL,
-  description  TEXT,
-  settings     JSONB DEFAULT '{}'::jsonb NOT NULL,
-  members_seed JSONB DEFAULT '[]'::jsonb NOT NULL,
-  depends_on   JSONB DEFAULT '[]'::jsonb NOT NULL
-);
-
-CREATE TABLE feedback (
-  id          UUID PRIMARY KEY,
-  proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
-  rating      INT CHECK (rating BETWEEN 1 AND 5),
-  comments    TEXT,
-  created_at  TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-
-## 12. Security and Privacy
-
-
-Least‑privilege scopes — Request only scopes needed for v1 (channels:manage, groups:write, users:read, usergroups:write, pins:write, commands, chat:write). Minimizes blast radius and simplifies review.
-
-
-Data minimization — Store Slack IDs/metadata; avoid PII in prompts via role labels. Reduces compliance risk.
-
-
-Encryption & secrets — TLS in transit; KMS‑backed AES‑256 at rest for DB/S3; use Secrets Manager for tokens/keys. No plaintext secrets.
-
-
-Access controls & audit — Per‑workspace tokens; admin console behind SSO with RBAC; immutable audit_logs for apply operations.
-
-
-Retention — Default 30‑day retention for proposals/logs; admin‑configurable; support hard‑delete for right‑to‑erasure.
-
-
-DLP option — Optional redaction step masks emails/real names before LLM requests; configurable by workspace.
-
-
-Guardrails — Validator blocks restricted names (per policy) and flags risky patterns (e.g., too many public channels for HR data).
-
-
-## 13. Risks to Completion
-
-App review & distribution — Slack review timelines may delay GA. Plan: prepare scope rationale and screenshots; run private beta pre‑distribution.
-
-
-Model cost/latency — Proposal generation may be slow/expensive. Plan: cache prompts, progressive disclosure in UI, smaller models for drafts.
-
-
-Customer policy variance — Diverse naming/privacy conventions. Plan: make policy rules data‑driven with templates; expose policy editor in settings.
-
-
-Testing realism — Limited real data pre‑launch. Plan: synthetic workspaces + golden set for regression scoring.
-
-
-Adoption risk — Users wary of auto‑creation. Plan: emphasize dry‑run diffs, easy rollback (archive), and onboarding guidance.
+    Proposals {
+      UUID id PK
+      UUID job_id FK "-> StructureJ_
 
 
 
-LLM (GPT 5) Chatlog: https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
+
+12. Security and Privacy
+Least Privilege Scopes: Only essential Slack permissions are requested.
+Data Minimization: Avoid storing sensitive user info; use role placeholders.
+Encryption: TLS for data in transit; AES-256 at rest with AWS KMS.
+Access Control: Role-based access and immutable audit logs.
+Retention: Default 30-day log retention, configurable per workspace.
+Optional DLP: Redacts personal data in prompts before AI calls.
+Guardrails: Validator blocks disallowed names and risky channel patterns.
+
+13. Risks to Completion
+
+This feature carries several potential risks that could affect delivery timelines, user adoption, and performance. Each risk is paired with a clearly defined probability, project impact level, and mitigation plan.
+App Review & Distribution — Medium probability / Medium impact.
+Slack’s review process could delay public release. The team will prepare documentation, scope rationale, and screenshots early, and conduct a private beta before general availability.
+Model Cost and Latency — Medium probability / High impact.
+Generating structural proposals with the model may be slow or expensive. To mitigate, prompts will be cached, smaller draft models used, and results streamed progressively to users.
+Customer Policy Variance — High probability / Medium impact.
+Workspaces differ in naming and privacy rules. Policies will be data-driven and configurable, with editable templates exposed in the admin settings.
+Testing Realism — Medium probability / Medium impact.
+Limited real data before launch could hinder testing accuracy. The team will build synthetic workspaces and a golden dataset to benchmark generation quality.
+Adoption Risk — High probability / High impact.
+Some teams may hesitate to allow automated creation of channels or groups. To address this, the product will emphasize preview diffs, rollback capabilities, and clear onboarding.
+
+LLM (GPT 5) Chatlogs:
+https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
+https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
+https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253  
