@@ -1,358 +1,542 @@
+
 # User Story 2
+Version/Date: v4.0 — 2025-10-31
+Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
 
 ## 1. Header
-Title: AI-Driven Centralized File Hub (User Story #2)
-Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
-Version/Date: v1.1 — 2025-10-22
+Title: AI-Driven Centralized File Hub — Simplified v1 (User Story #2)
+
 User Story:
-As a project manager, I want Slack to design a centralized project file hub that integrates with the workspace structure, using channel and subgroup data to consolidate, deduplicate, tag, and make all project files searchable so that my team can easily find and manage files across the workspace.
+As a project team, we want Slack to design a centralized project file hub that integrates with the workspace structure, using channel and subgroup data to consolidate, deduplicate, tag, and make all project files searchable so that the team can easily find and manage files across the workspace.
+
 Outcome:
-A unified file management layer that automatically organizes, indexes, and tags project-related documents across Slack channels and groups, using AI to deduplicate and surface the most relevant versions, with in-Slack search and filtering.
+A unified file-management layer that automatically organizes, indexes, and tags project-related documents across Slack channels and groups, using AI to deduplicate and surface the most relevant versions with in-Slack search and filtering. Bulk actions are always confirmed by the team before execution.
+
 Primary KPIs:
-File retrieval time ≤5s, duplicate file rate <10%, search precision@5 ≥0.8, PM satisfaction (CSAT ≥4/5).
+File retrieval time ≤ 5 s
+Duplicate file rate < 10 %
+Search precision@5 ≥ 0.8
+Team satisfaction (CSAT ≥ 4 / 5)
 
 ## 2. Architecture Diagram
 
-![ alt text](u2_arch.png)
-
+![ alt text](2A.png)
 
 flowchart LR
-  title["Centralized File Hub Architecture"]
-  title:::titleStyle
-
-  subgraph Slack_Client["Slack Client (User Workspace)"]
-    H[Home Tab]
-    FH[File Hub View]
-    SC[/Slash Commands/]
+  subgraph SlackClient[Slack Client (User Workspace)]
+    H[HomeTab]
+    M[ConfigReviewModal]
+    SC[/SlashCommands/]
     SHT[(Shortcuts)]
   end
 
-  subgraph Backend["Backend (Cloud Infrastructure)"]
-    API[Events & Interactions API]
-    ORC[Orchestrator Service]
-    AI["AI Engine\n(Deduplication + Tagging + Search Indexing)"]
-    SLI[Slack Integration Layer]
+  subgraph Backend[Backend (Cloud)]
+    API[EventsAndInteractionsAPI]
+    JobService[JobService + StateMachine]
+    Generator[Generator (LLM + Heuristics)]
+    Validator[Validator (Policy + Quality)]
+    ApplyService[ApplyService]
+    SlackGateway[SlackGateway]
     DB[(PostgreSQL + pgvector)]
-    Q[(Queue System)]
-    REDIS[(Redis Cache)]
-    S3[(File Metadata Storage)]
-    OBS[(Telemetry/Logs)]
-    IDX[(Vector Index)]
+    Queue[(Queue)]
+    Redis[(Redis Cache/Locks)]
+    S3[(Artifact Storage)]
+    Observability[(Telemetry/Logs)]
   end
 
-  subgraph Third_Party["Third-Party Services"]
+  subgraph ThirdParty[Third-Party]
     LLM[(Model Provider)]
-    DLP[(Data Loss Prevention Service)]
-    SEARCH[(External Search API)]
+    DLP[(PII Redaction)]
   end
 
   SC --> API
   SHT --> API
   H <--> API
-  FH <--> API
+  M <--> API
 
-  API --> ORC
-  ORC -->|Collects Metadata| SLI
-  ORC --> AI
-  ORC -->|Stores Results| DB
-  AI -->|Embeddings| IDX
-  AI --> LLM
-  ORC --> S3
-  ORC --> OBS
-  ORC <--> REDIS
-  ORC --> DLP
-  ORC --> SEARCH
-
-  subgraph Legend["Legend"]
-    L1[Square = Process or Service]
-    L2[(Circle) = Data Store or Cache]
-    L3[/Parallelogram/ = User Command or Action]
-    L4[(Rounded Box) = Integration / API Layer]
-  end
-
-  classDef titleStyle fill=none,stroke=none,font-size:20px,font-weight:bold;
-
+  API --> JobService
+  JobService -->|persist| DB
+  JobService -->|enqueue| Queue
+  JobService -->|harvestContext| SlackGateway
+  JobService -->|preparePrompts| Generator
+  Generator -->|useRules| Validator
+  Generator --> LLM
+  Generator -->|proposal| DB
+  Validator -->|validateAndScore| DB
+  JobService -->|renderForReview| API
+  JobService -->|apply| ApplyService
+  ApplyService --> SlackGateway
+  ApplyService -->|audit| DB
+  JobService --> S3
+  JobService --> Observability
+  JobService <--> Redis
+  JobService --> DLP
 
 Explanation:
-This diagram represents the system architecture, showing how Slack clients, backend services, and third-party integrations work together. Users interact via Home Tab, File Hub, shortcuts, or slash commands, which are captured by the Events & Interactions API. The Orchestrator coordinates the workflow, collecting file metadata through the Slack Integration Layer, and invoking the AI Engine for deduplication, tagging, and embedding for semantic search. The PostgreSQL database with pgvector stores metadata and indexes, while Redis caches frequently accessed data. Files and artifacts persist in S3, and telemetry is captured in OBS. Third-party services include an LLM for semantic understanding, a DLP service for privacy, and optional external search APIs. The legend clarifies diagram symbols for non-technical stakeholders.
+When the team runs a file-hub action in Slack (using a command or shortcut), Slack’s Events and Interactions API triggers a new workflow through the JobService.
+The JobService acts like a coordinator — it collects metadata about files and channels through the SlackGateway, builds prompts for the Generator, and passes them to the LLM to create a structured FileProposal.
+The Validator checks that proposal against policy rules and quality criteria before sending it back to the team for review.
+After approval, the ApplyService executes approved actions (merging duplicates, retagging, reindexing).
+All operations are logged in DB and Observability, with temporary data stored in Redis and artifacts like diffs kept in S3.
+DLP filters protect sensitive information before it reaches the AI model.
+Information Flow: Trigger → Intake → ContextHarvest → Generation → Validation → Review → Approval → Apply → Audit
 
 ## 3. Class Diagram
 
-![ alt text](u2_class.png)
+![ alt text](2C.png)
 
 classDiagram
-  classTitle["Core File Hub Classes"]
-  classTitle:::titleStyle
-
   class FileJob {
     +UUID id
     +String workspaceId
     +JobStatus status
+    +String createdByUserId
     +Instant createdAt
     +Instant updatedAt
-    +start()
-    +advance(to: JobStatus)
-    +fail(reason: String)
   }
 
-  class FileRecord {
-    +UUID id
-    +String slackFileId
-    +String channelId
-    +String uploaderUserId
-    +String name
-    +String mimeType
-    +String hash
-    +Instant uploadedAt
-    +Map~String,Any~ tags
-  }
-
-  class FileIndex {
+  class FileProposal {
     +UUID id
     +UUID jobId
-    +Embedding vector
-    +String[] keywords
-    +float relevance
-    +update(vector,metadata)
+    +int version
+    +float score
+    +String rationale
+    +Blueprint[] blueprints
   }
 
-  class DeduplicationEngine {
-    +findDuplicates(files: FileRecord[]): FileRecord[][]
-    +mergeMetadata(duplicates: FileRecord[]): FileRecord
+  class Blueprint {
+    +String resourceType
+    +String name
+    +String description
+    +Map settings
+    +Op[] ops
+    +UUID[] dependsOn
   }
 
-  class TaggingEngine {
-    +generateTags(file: FileRecord): Map~String,Any~
-    +normalize(tags): Map~String,Any~
+  class Policy { +Map~String,Any~ rules }
+  class ContextPackage { +IntakeForm intake; +SlackFileContext workspace }
+  class IntakeForm { +String projectName; +String[] goals; +String[] constraints; +String timeline; +String department; +String[] stakeholders }
+  class SlackFileContext { +FileRecord[] files; +Channel[] channels; +User[] users; +UsageSignals usage }
+  class FileRecord { +String slackFileId; +String channelId; +String uploaderUserId; +String name; +String mimeType; +String hash; +Instant uploadedAt; +Map~String,Any~ tags }
+  class ApplyResult { +String[] updatedFiles; +String[] mergedGroups }
+  class ValidationResult { +bool ok; +Issue[] issues }
+  class Issue { +String code; +String message; +String severity }
+  class Blocks
+  class Prompt
+
+  class JobService {
+    +create(IntakeForm)
+    +advance(UUID, JobStatus)
+    +fail(UUID, String)
+    +harvestContext(UUID)
+    +buildPrompt(UUID)
+    +renderForReview(UUID)
   }
 
-  class SearchService {
-    +search(query: String): FileRecord[]
-    +rank(results): FileRecord[]
-    +filterBy(tags: Map~String,String~)
+  class Generator { +generate(ContextPackage, Policy): FileProposal }
+  class Validator {
+    +validate(FileProposal, Policy): ValidationResult
+    +score(FileProposal): float
+  }
+  class ApplyService { +apply(FileProposal): ApplyResult }
+  class SlackGateway {
+    +filesList(channelId)
+    +filesInfo(fileId)
+    +filesSetTitle(fileId, title)
+    +filesReindex(fileId)
+    +filesSetTags(fileId, tags[])
+    +filesMerge(primaryFileId, duplicateIds[])
   }
 
-  class Orchestrator {
-    +createJob()
-    +harvestFiles()
-    +invokeAI()
-    +updateIndex()
-    +search(query)
-    +recordAudit(action, payload)
-  }
-
-  class SlackClient {
-    +listFiles(channelId)
-    +getFileInfo(fileId)
-    +openFileHub(userId)
-    +previewFile(fileId)
-  }
-
-  FileJob --> FileRecord
-  FileJob --> FileIndex
-  FileRecord --> FileIndex
-  Orchestrator --> SlackClient
-  Orchestrator --> DeduplicationEngine
-  Orchestrator --> TaggingEngine
-  Orchestrator --> SearchService
-
-  class Legend {
-    Note1["Solid Arrow = Data Flow / Invocation"]
-    Note2["Class = Core Functional Component"]
-    Note3["+Method() = Public Function / Service Operation"]
-  }
-
-  classDef titleStyle fill=none,stroke=none,font-size:20px,font-weight:bold;
-
+  FileJob --> FileProposal
+  FileProposal o-- Blueprint
+  ContextPackage --> IntakeForm
+  ContextPackage --> SlackFileContext
+  JobService --> FileJob
+  JobService --> Generator
+  JobService --> Validator
+  ApplyService --> FileProposal
+  ApplyService --> SlackGateway
 
 Explanation:
-This class diagram displays the key backend classes and their relationships. FileJob represents a processing workflow for a set of files, storing metadata about status, timestamps, and error handling. FileRecord represents individual Slack files, and FileIndex stores embeddings for semantic search. DeduplicationEngine identifies duplicates, while TaggingEnginegenerates context-based tags. SearchService allows querying files by keywords and tags. The Orchestrator manages the entire workflow and interacts with the SlackClient to retrieve files and trigger updates. The legend clarifies class symbols and arrow meanings for easy understanding.
+Each class represents a piece of the file-hub workflow:
+FileJob tracks job status and ownership.
+FileProposal stores the AI-generated plan for file actions.
+Blueprint lists specific operations (merge, reindex, retag).
+Policy contains workspace rules.
+Validator checks for policy compliance and risk.
+ApplyService executes actions through SlackGateway, which connects to Slack’s API.
 
-## 4. State Diagram
+## 4. List of Classes
+The following classes define the main data entities, logical components, and supporting services that power the File Hub system. Each plays a distinct role in managing file-related automation, validation, and user review within Slack.
 
-![ alt text](u2_state.png)
+FileJob
+Acts as the persistent record of every File Hub run. It tracks state, ownership, and timestamps throughout execution, ensuring full lifecycle visibility and auditability.
+
+FileProposal
+Contains the AI-generated set of recommended file actions, including deduplication, tagging, and reindexing operations. Each proposal includes rationale, a version number, and a quality score for traceable evaluation.
+
+Blueprint
+Defines the declarative, idempotent instructions for file operations and their execution dependencies. Supports clear ordering of actions such as tag updates, duplicate merges, and index refreshes.
+
+Policy
+Serves as a data-only container that stores workspace rules for retention, tagging standards, and scope validation. Consumed by the Validator to enforce organizational governance.
+
+ContextPackage
+Bundles together user-provided intake data and harvested workspace metadata into a unified structure used during proposal generation.
+
+IntakeForm
+Collects team-supplied details such as project goals, timeline, and specific constraints. This input defines the intent of the run and ensures contextual relevance for AI-driven decisions.
+
+SlackFileContext
+Represents a live snapshot of files, channels, and users within the workspace, along with associated usage metrics. Enables the Generator to identify redundancies and suggest optimized file groupings.
+
+FileRecord
+Stores detailed metadata for each file, including uploader, hash, MIME type, and applied tags. This class enables accurate deduplication, traceability, and compliance tracking.
+
+ApplyResult
+Captures all outputs from the apply phase, including lists of updated, merged, or re-tagged files. Provides a clear record of completed actions for user confirmation.
+
+ValidationResult / Issue
+Documents validation outcomes and detected issues. Each entry specifies a code, message, and severity to help teams understand compliance gaps and quality scores.
+
+JobService
+Coordinates the entire workflow lifecycle—from job creation to completion. Manages state transitions, prompt generation, and rendering of Slack review components.
+
+Generator
+Uses the LLM and supporting heuristics to produce high-quality FileProposals. Focuses on balancing efficiency, accuracy, and adherence to workspace policies.
+
+Validator
+Applies defined rules to evaluate each proposed action for safety and quality. Scores proposals, flags risky operations, and ensures compliance with tagging and retention policies.
+
+ApplyService
+Executes approved file operations through Slack’s API. Incorporates retry logic, batching, and error handling to maintain reliability and avoid exceeding rate limits.
+
+SlackGateway
+Provides a structured interface to Slack’s file management endpoints. Handles listing, tagging, merging, and metadata updates while isolating API logic from core services.
+
+Blocks
+Represents reusable Slack Block Kit UI components used in Home Tab and review modals. Supports consistent and interactive presentation of job data to users.
+
+Prompt
+Stores the structured instructions, contextual parameters, and policies sent to the LLM. Each prompt is archived for auditability, reproducibility, and future model-tuning analysis.
+
+
+
+
+## 5. State Diagram
+
+![ alt text](2S.png)
 
 stateDiagram-v2
-   title: File Job Lifecycle
-
-
-   [*] --> Scanning
-   Scanning --> Consolidating
-   Consolidating --> Deduplicating
-   Deduplicating --> Tagging
-   Tagging --> Indexing
-   Indexing --> Ready
-   Ready --> Updating
-   Updating --> Ready
-   Scanning --> Failed
-   Consolidating --> Failed
-   Deduplicating --> Failed
-   Tagging --> Failed
-   Indexing --> Failed
-
-
-   state "Legend:
-   Rectangles = Processing
-   Stage Arrows = State Transitions"  as Legend
-  
-
-
-   classDef titleStyle fill=none,stroke=none,font-size:20px,font-weight:bold
-
-
-
-
-
+  [*] --> Created
+  Created --> IntakeReady
+  IntakeReady --> Generating
+  Generating --> Review
+  Review --> Approved
+  Approved --> Applying
+  Applying --> Done
+  Created --> Failed
+  IntakeReady --> Failed
+  Generating --> Failed
+  Review --> Failed
+  Applying --> Applying : Retry/Backoff
 
 Explanation:
-This state diagram illustrates the lifecycle of a file processing job. Jobs begin in Scanning, collecting files from Slack. They progress through Consolidating, where file metadata is unified, then Deduplicating, which removes duplicates. Tagging applies semantic labels, and Indexing generates the vector search index. Once ready, jobs enter Updating for new or modified files. Any stage can transition to Failed, allowing retries and audit logging. The legend clarifies stage symbols and transitions for non-technical stakeholders.
+Jobs progress through defined phases. Each step represents a key moment in the file hub process—from intake to approval to application. If an error occurs, the system moves to Failed, but temporary failures can retry safely without losing progress.
 
-## 5. Flow Chart
+## 6. Flow Chart
 
-![ alt text](u2_flow.png)
+![ alt text](2F.png)
 
-flowchart LR
-  title["File Hub Processing Flow"]
-  title:::titleStyle
-
-  Trigger[/User Action: Open File Hub or Slash Command/]
-  Intake[Create FileJob & Log Request]
-  Harvest[Collect Files & Metadata from Slack]
-  Synthesis[AI Engine: Deduplicate, Tag, Embed]
-  Guardrails[Data Privacy & Policy Checks]
-  Review[Optional Human Review]
-  Apply[Update Database & Refresh Hub View]
-  Audit[Log Actions & Collect Feedback]
-
-  Trigger --> Intake --> Harvest --> Synthesis --> Guardrails --> Review --> Apply --> Audit
-
-  subgraph Legend["Legend"]
-    L1[/Parallelogram/ = User Action / Trigger]
-    L2[Rectangle = Process / Stage]
-    L3[(Circle) = Data Storage / Index]
-  end
-
-  classDef titleStyle fill=none,stroke=none,font-size:20px,font-weight:bold;
-
+Scenario Label: SC2 — Generate and Apply File Hub Actions (User Story #2)
+flowchart TD
+  Start((Start)) --> A[Team runs "/filehub" Command\n[Created]]
+  A --> B[IntakeModal Completed\n[IntakeReady]]
+  B --> C{HarvestFileContext?}
+  C -- Yes --> D[List Files and Metadata Across Channels\n[IntakeReady]]
+  C -- No --> G[BuildPromptAndPolicies\n[Generating]]
+  D --> E[ContextSnapshotSaved\n[IntakeReady]]
+  E --> G
+  G --> H[GenerateFileProposal (Generator)\n[Generating]]
+  H --> I[ValidateAndScore (Validator)\n[Generating]]
+  I --> J[RenderAndReviewInModal/Home\n[Review]]
+  J -- Approve --> JA[MarkApproved\n[Approved]]
+  JA --> K[ApplyViaSlackGateway (ApplyService)\n[Applying]]
+  J -- RequestChanges --> H
+  K --> L[ExecuteFileOps (updateTags, mergeDuplicates, reindex)\n[Applying]]
+  L --> M[(AuditLogAndFeedback)]
+  M --> Done((End\n[Done]))
 
 Explanation:
-The flowchart visualizes the end-to-end process of a file job. Users trigger the workflow via Slack, and the Orchestrator creates a FileJob. Files and metadata are collected from Slack channels and groups. The AI Engine deduplicates files, generates tags, and creates vector embeddings. Guardrails ensure data privacy and policy compliance. Optionally, human reviewers validate critical actions. The Apply stage updates the database and refreshes the File Hub, and Audit logs capture actions and feedback. The legend explains the meaning of diagram symbols, making it understandable for non-technical readers.
+The team starts the process with the /filehub command.
+They complete an intake form to define scope and constraints.
+The system collects file metadata from Slack.
+The AI Generator proposes actions to clean and organize files.
+The Validator checks for compliance and risk.
+The team reviews the proposal in Slack and either approves or requests changes.
+After approval, the ApplyService runs safe file operations and records results in the audit log.
 
-## 6. Technology Stack
-Backend: Node.js 20, TypeScript, Fastify
-Slack Integration: Bolt for Slack
-Database: PostgreSQL + pgvector
-Caching & Queue: Redis, SQS
-File Storage: AWS S3
-Observability: OpenTelemetry
-Testing: Jest, Playwright, Pact
-Infrastructure: Terraform
-AI Models: LLM provider (GPT-4-class)
+## 7. Development Risks and Failures
+The File Hub feature introduces risks related to app approval, performance, data governance, and user adoption. Each identified risk includes its probability, project impact, and mitigation strategy to ensure stability, trust, and compliance.
 
-## 7. APIs
-Incoming Slack Events:
-POST /slack/events — app_mentions, shortcuts, etc.
-POST /slack/interactions — modal submissions, buttons
-Internal REST:
-POST /files/jobs — creates a FileJob
-GET /files/jobs/{id} — retrieves job status and progress
-POST /files/jobs/{id}/review — mark job as reviewed
-POST /files/jobs/{id}/feedback — submit user feedback
+App Review Delays — Medium probability / Medium impact.
+The Slack app review process may slow the public release timeline.
+Mitigation: Submit scope documentation, permission rationale, and screenshots early, and launch a private beta before full deployment.
 
-## 8. Public Interfaces
-Orchestrator Methods: createJob(), harvestFiles(), invokeAI(), updateIndex(), recordAudit()
-Evaluator Methods: detectDuplicates(), validateTags(), scoreRelevance()
-SlackClient Methods: listFiles(), getFileInfo(), openFileHub(), previewFile()
+Model Cost and Latency — Medium probability / High impact.
+LLM inference may increase system latency or operational costs.
+Mitigation: Cache common prompts, use smaller draft models for preliminary runs, and progressively load results in the user interface.
 
-## 9. Development Risks and Failures
-Potential issues include Slack API rate limits, AI misclassification, search latency, storage overhead, and tag inconsistency. Mitigation strategies involve caching, deduplication via multiple metrics, index optimization, embedding pruning, and versioned prompts for AI tagging. Continuous monitoring and alerting are implemented to detect and respond to failures quickly.
+Policy Variance — High probability / Medium impact.
+Each workspace may follow unique retention and tagging conventions.
+Mitigation: Design policies to be data-driven and fully editable per workspace, allowing customization without code changes.
 
-## 10. Data Schemas
+Testing Realism — Medium probability / Medium impact.
+Limited access to real data could reduce the accuracy of validation and quality assurance.
+Mitigation: Generate synthetic datasets and maintain golden test sets to benchmark model performance consistently.
 
-![ alt text](u2_data.png)
+Adoption Risk — High probability / High impact.
+Teams may be hesitant to approve automated or bulk file modifications.
+Mitigation: Offer clear dry-run previews, visible rollback options, and transparent UX messaging to build user confidence.
+
+Slack API Rate Limits — Medium probability / Medium impact.
+Performing high-volume file updates could trigger Slack API rate throttling.
+Mitigation: Queue and batch operations, use exponential backoff, and pre-estimate API calls to stay within rate limits.
+
+Insufficient Permissions — Low probability / High impact.
+Missing Slack scopes could prevent file tagging, merging, or retrieval.
+Mitigation: Use a guided installation process with explicit scope explanations and implement graceful fallback behaviors for unsupported operations.
+
+Low-Quality Proposals — Medium probability / Medium impact.
+The AI may misclassify duplicate files or suggest incorrect tagging actions.
+Mitigation: Enforce strict policy validation, require manual approval checkpoints, and refine prompt tuning with representative examples.
+
+Security / PII Leakage — Low probability / High impact.
+Prompts or logs may contain sensitive personal or organizational data.
+Mitigation: Apply optional DLP masking, anonymize identifiers, and use encrypted storage for all audit artifacts.
+
+Change Management — Medium probability / Medium impact.
+Users might be caught off guard by automated file or tag updates.
+Mitigation: Provide detailed preview modals, confirmation steps before execution, and undo options to maintain transparency and control.
+
+
+## 8. Technology Stack
+Language/Runtime: TypeScript (Node.js 20)
+Frameworks: Bolt for Slack (Events & Interactivity), Fastify (REST API)
+Infrastructure: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X-Ray or OpenTelemetry for end-to-end observability
+Data: PostgreSQL + pgvector, Redis, S3
+AI: GPT-5 LLM with JSON schema validation (structured, deterministic outputs for safe backend integration)
+CI/CD: GitHub Actions, Terraform (Infrastructure as Code)
+Testing: Jest (unit), Pact (contract), Playwright (UI flows), k6 (load & apply-phase)
+
+
+## 9. APIs
+Incoming Slack
+POST /slack/events — Handles events and app mentions.
+POST /slack/interactions — Manages user interactions (modals, buttons).
+Internal REST
+POST /files/jobs — Creates FileJob.
+GET /files/jobs/{id} — Returns job status and proposal.
+POST /files/jobs/{id}/harvest — Gathers Slack file metadata.
+POST /files/jobs/{id}/generate — Runs the Generator.
+POST /files/jobs/{id}/validate — Validates and scores output.
+POST /files/proposals/{id}/approve — Approves and advances job.
+POST /files/proposals/{id}/apply — Executes ApplyService.
+POST /files/proposals/{id}/feedback — Captures user rating/comments.
+
+## 10. Public Interfaces
+The File Hub feature integrates seamlessly into Slack, providing intuitive entry points for users to launch, review, and confirm file-organization operations. Each interface supports a distinct stage of the workflow, ensuring clarity and control throughout the process.
+
+Slash Command — /filehub
+Initiates the File Hub workflow. When invoked, it opens the intake sequence where users can define their goals and start the file-organization process.
+
+Shortcut — “Open File Hub from Thread”
+Enables quick access directly from an existing channel or thread. It automatically populates the intake form with contextual information from the conversation, reducing manual setup.
+
+Home Tab
+Acts as the File Hub dashboard within Slack. It displays job statuses, recent activity, and quick-action buttons for launching new file jobs or revisiting prior runs.
+
+Intake Modal
+Gathers user input such as project goals, participating teams, and constraints. This information guides the AI proposal and ensures the generated plan reflects workspace priorities.
+
+Proposal Review Modal
+Presents the AI-generated proposal for review. Users can edit, approve, or reject specific file actions, view diffs, and validate tagging or merge recommendations before proceeding.
+
+Confirmation Modal
+Provides a final summary of proposed updates, including file actions and metadata changes. Users can confirm to apply or cancel the operation to prevent unintended modifications.
+
+
+
+## 11. Data Schemas (SQL DDL)
+
+![ alt text](2D.png)
+(Schema validated for accuracy; formatting standardized for readability)
 
 
 erDiagram
-    workspaces {
-        UUID id PK
-        TEXT slack_team_id UK
-        TIMESTAMPTZ created_at "DEFAULT now()"
+    Workspaces ||--o{ FileJobs : has
+    FileJobs ||--o{ IntakeForms : has
+    FileJobs ||--o{ FileProposals : has
+    FileProposals ||--o{ Blueprints : contains
+    Workspaces ||--o{ Policies : has
+    FileJobs ||--o{ AuditLogs : generates
+    FileProposals ||--o{ Feedback : collects
+    FileJobs ||--o{ Artifacts : produces
+    Workspaces ||--o{ Files : has
+    Files ||--o{ FileIndex : indexed_by
+
+    Workspaces {
+      UUID id PK
+      string slack_team_id "UNIQUE NOT NULL"
+      string installer_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      jsonb settings "NOT NULL DEFAULT {}"
     }
 
-    file_jobs {
-        UUID id PK
-        UUID workspace_id FK
-        TEXT status
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
+    FileJobs {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string status "ENUM created|intake_ready|generating|review|approved|applying|done|failed"
+      string created_by_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      timestamptz updated_at "DEFAULT now()"
     }
 
-    files {
-        UUID id PK
-        UUID workspace_id FK
-        TEXT slack_file_id UK
-        TEXT name
-        TEXT channel_id
-        TEXT uploader_user_id
-        TEXT mime_type
-        TEXT hash
-        JSONB tags "DEFAULT '{}' NOT NULL"
-        TIMESTAMPTZ uploaded_at
+    IntakeForms {
+      UUID id PK
+      UUID job_id FK "-> FileJobs.id"
+      jsonb data "NOT NULL"
     }
 
-    file_index {
-        UUID id PK
-        UUID file_id FK
-        VECTOR embedding
-        JSONB keywords "DEFAULT '[]' NOT NULL"
-        NUMERIC relevance "(3,2)"
+    FileProposals {
+      UUID id PK
+      UUID job_id FK "-> FileJobs.id"
+      int version "NOT NULL"
+      numeric score "(5,2)"
+      text rationale
+      jsonb payload "NOT NULL"
     }
 
-    audit_logs {
-        UUID id PK
-        UUID job_id FK
-        TEXT action
-        JSONB payload
-        TIMESTAMPTZ created_at
+    Blueprints {
+      UUID id PK
+      UUID proposal_id FK "-> FileProposals.id"
+      string resource_type "ENUM file_action"
+      string name "NOT NULL"
+      text description
+      jsonb settings "DEFAULT {}"
+      jsonb depends_on "DEFAULT []"
+      jsonb ops "DEFAULT []"
     }
 
-    feedback {
-        UUID id PK
-        UUID file_id FK
-        INT rating
-        TEXT comments
-        TIMESTAMPTZ created_at
+    Policies {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      jsonb rules "NOT NULL"
     }
 
-    workspaces ||--o{ file_jobs : "workspace_id"
-    workspaces ||--o{ files : "workspace_id"
-    files ||--o{ file_index : "file_id"
-    file_jobs ||--o{ audit_logs : "job_id"
-    files ||--o{ feedback : "file_id"
+    AuditLogs {
+      UUID id PK
+      UUID job_id FK "-> FileJobs.id"
+      string action "NOT NULL"
+      jsonb payload "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Feedback {
+      UUID id PK
+      UUID proposal_id FK "-> FileProposals.id"
+      int rating "1..5"
+      text comments
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Artifacts {
+      UUID id PK
+      UUID job_id FK "-> FileJobs.id"
+      string artifact_type "NOT NULL"
+      string s3_uri "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Files {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string slack_file_id "UNIQUE NOT NULL"
+      string name "NOT NULL"
+      string channel_id "NOT NULL"
+      string uploader_user_id "NOT NULL"
+      string mime_type "NOT NULL"
+      string hash
+      jsonb tags "DEFAULT {}"
+      timestamptz uploaded_at
+    }
+
+    FileIndex {
+      UUID id PK
+      UUID file_id FK "-> Files.id"
+      vector embedding
+      jsonb keywords "DEFAULT []"
+      numeric relevance "(3,2)"
+    }
 
 
-Explanation:
-Workspaces contain multiple file jobs and files. Files are indexed for semantic search via embeddings. Audit logs capture all job actions. Feedback is linked to files to improve AI accuracy. Relationships maintain data integrity and enable efficient query operations.
 
-## 11. Security and Privacy (Expanded)
-The AI-Driven Centralized File Hub handles sensitive project documents, which means security and privacy are top priorities. The system follows a least-privilege approach, requesting only the Slack OAuth scopes strictly necessary to operate (e.g., channels:read, groups:read, files:read, usergroups:read). This ensures that if a token is compromised, the potential damage is minimized.
-Data minimization is employed by storing only Slack IDs, metadata, and file embeddings rather than full personal content. When the AI engine requires examples for tagging or deduplication, PII such as usernames or email addresses is replaced with role-based labels. This reduces exposure of personal information and helps maintain compliance with privacy regulations.
-All communication is encrypted with TLS during transit, and data at rest is encrypted using AES-256 managed via AWS KMS. Secrets, such as Slack tokens and AI keys, are stored in a secure secrets manager and never embedded in code or environment files.
-Access control is managed on a per-workspace basis, and only authorized operators with role-based permissions can perform administrative actions. All apply operations and sensitive actions are audited to provide a complete record of who did what and when.
-The system also provides retention and deletion policies, with proposals and audit logs retained for a default of 30 days, configurable by workspace administrators. A pluggable DLP redaction step masks emails and names before sending content to AI models hosted outside the workspace region. Additionally, the policy engine blocks creation of channels containing restricted keywords unless overridden by an admin, helping enforce compliance and prevent accidental leaks.
 
-## 12. Risks to Completion (Expanded)
-Several factors could impact the timely completion and deployment of the File Hub. Slack App approval can introduce delays because the platform reviews OAuth scopes and app distribution. To mitigate this, detailed documentation, security notes, and sample screens should be prepared early, and a private beta can be used to test functionality while waiting for approval.
-AI model performance introduces risk: generating deduplicated, tagged, and searchable file metadata can be slow or produce inconsistent results. This is mitigated by caching prompts, using smaller models for draft processing, and streaming partial results to ensure users are not blocked.
-Heterogeneous workspace policies are another challenge. Different organizations have varied naming conventions, privacy requirements, and access controls. This is addressed through the policy engine, which allows workspace-specific rules and templates while ensuring consistent validation.
-Data scarcity for testing may delay accurate AI performance evaluation. To counter this, synthetic workspaces and curated “golden sets” are used for regression testing, enabling thorough pre-production validation.
-Finally, user resistance could impact adoption if teams are wary of automatic file organization. Preview diffs, rollback capabilities, and clear onboarding guidance help reduce confusion and encourage trust in the system.
+## 12. Security and Privacy
+Least Privilege Scopes: Only minimum Slack scopes requested (files:read, usergroups:read, commands).
+Data Minimization: Only essential metadata stored.
+Encryption: TLS in transit, AES-256 at rest, AWS KMS-managed keys.
+Access Controls: Role-based access and immutable audit logs.
+Retention: 30-day default; admin-configurable.
+DLP Option: Masks PII before sending to LLM.
+Guardrails: Validator prevents unsafe file actions or destructive merges.
 
-## 13. Development Risks and Failures (Expanded)
-The development process itself presents risks that need to be anticipated. Processing bottlenecks can occur when multiple jobs attempt to read large numbers of files or compute embeddings simultaneously. This is mitigated with queuing mechanisms, rate limiting, and caching intermediate results.
-Duplicate detection errors could lead to false merges or missed duplicates. The system uses multi-factor comparison, including file hash, size, and vector similarity, to reduce these errors. AI misclassification or inconsistent tagging may occur if the AI model evolves; versioned prompts and periodic human review help maintain accuracy.
-Storage growth and search latency are also concerns because embedding vectors can be large, and the index may grow over time. Periodic pruning, approximate nearest-neighbor search techniques, and Redis caching help maintain performance.
-Third-party dependencies, such as external LLM providers or Slack API updates, introduce potential failures. These are mitigated with retries, exponential backoff, and monitoring alerts to quickly detect and respond to failures.
-Overall, a combination of proactive monitoring, fallback handling, and robust operational policies ensures that the system remains reliable, secure, and responsive even under high load or unexpected errors.
+## 13. Risks to Completion
 
-LLM (GPT 4 and 5) Chatlog: https://chatgpt.com/share/68f969e6-fe74-800d-9ca0-329833bca32c 
+The cross-workspace “Search Once” feature introduces both technical and organizational challenges that could affect release readiness, model performance, and user trust. Each risk below includes its description, probability, project impact, and mitigation plan.
+
+App Review Delays — Medium probability / Medium impact.
+The Slack app review process could delay public release timelines.
+Mitigation: Prepare documentation, scope details, and screenshots early, and conduct an internal beta to validate functionality before submission.
+
+Model Cost and Latency — Medium probability / High impact.
+AI-driven processing and ranking may increase latency or operating costs.
+Mitigation: Implement prompt caching, progressive UI updates, and fallback to smaller or cached models when under heavy load.
+
+Policy Variance — High probability / Medium impact.
+Different teams may enforce unique file-handling or retention policies.
+Mitigation: Provide configurable templates and policy editors that allow each workspace to tailor its rules without additional engineering effort.
+
+Testing Realism — Medium probability / Medium impact.
+Limited access to real Slack datasets before launch may reduce test accuracy.
+Mitigation: Generate high-fidelity synthetic test data and maintain a “golden” regression dataset for continuous validation.
+
+Adoption Risk — High probability / High impact.
+Users may hesitate to enable automatic file changes or large-scale indexing.
+Mitigation: Include dry-run previews, clear rollback options, and educational onboarding to increase transparency and trust.
+
+Slack API Rate Limits — Medium probability / Medium impact.
+High-volume listing or tagging operations could trigger throttling.
+Mitigation: Queue and batch API requests, use exponential backoff, and monitor API usage through telemetry dashboards.
+
+Insufficient Permissions — Low probability / High impact.
+Missing admin-level scopes may prevent specific file operations.
+Mitigation: Offer guided installation with scope explanations and graceful fallback behaviors when permissions are unavailable.
+
+Low-Quality Proposals — Medium probability / Medium impact.
+The AI may misclassify or merge files incorrectly.
+Mitigation: Require manual approval checkpoints, strengthen validation rules, and retrain prompts with curated examples.
+
+Security / PII Leakage — Low probability / High impact.
+Prompts or logs may contain sensitive personal information.
+Mitigation: Apply DLP redaction, anonymize identifiers, and use encryption for all stored prompts and artifacts.
+
+Change Management — Medium probability / Medium impact.
+Teams might be surprised by large-scale automatic updates or file reorganizations.
+Mitigation: Add detailed preview modals, confirmation steps, and undo functionality to maintain transparency and control.
+
+## Chat GPT Chat Log:
+https://chatgpt.com/share/68f969e6-fe74-800d-9ca0-329833bca32c 
+https://chatgpt.com/share/690140e9-ee64-800a-a2dd-8cca0904fd45
+https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
