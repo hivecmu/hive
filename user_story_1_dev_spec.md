@@ -1,14 +1,18 @@
 # User Story 1
 Version/Date: v4.0 — 2025-10-31
+
 Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
 
 
 ## 1. Header
 Title: AI-Generated Slack Workspace Structure — Simplified v1 (User Story #1)
+
 User Story:
 As a project team, we want Slack to use AI to automatically generate and create an optimized structure for workspaces, channels, and subgroups so that communication is organized, clear, and scalable from the start without requiring manual setup.
+
 Outcome:
 A Slack app that proposes and applies a best-practice information architecture (channels, user groups, naming conventions, topics/purposes, and starter workflows) on Day 0, with human-in-the-loop approval.
+
 Primary KPIs:
 Time to first usable structure: <10 minutes
 Percentage of proposals accepted without edits: >60%
