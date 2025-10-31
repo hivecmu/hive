@@ -281,21 +281,27 @@ Once approved, the structure is applied automatically and logged for future revi
 
 ## 7. Development Risks and Mitigations
 The team identified several key risks that could impact performance, user trust, or data safety during implementation of the workspace-generation feature. Each risk includes a clear description and corresponding mitigation plan.
+
 Slack API Rate Limits
 Too many rapid operations—such as channel creation or user invitations—may trigger throttling by Slack’s API.
 Mitigation: Implement queuing, batch invitations, and exponential backoff to safely manage request flow and avoid rate-limit errors.
+
 Insufficient Permissions
 Missing or misconfigured API scopes could block critical operations like creating channels or inviting users.
 Mitigation: Provide a guided installation process that clearly explains required scopes and ensure graceful fallback behavior when permissions are missing.
+
 Low-Quality Proposals
 The AI may occasionally generate redundant, irrelevant, or poorly structured channels.
 Mitigation: Enforce strict policy validation, apply schema checks, and include a mandatory human approval step before changes are finalized.
+
 Enterprise Grid Complexity
 Multi-workspace Slack environments introduce synchronization and data-sharing challenges.
 Mitigation: Limit Version 1 to single-workspace support, then incrementally expand to Enterprise Grid once core stability is proven.
+
 Security or PII Leakage
 Prompts or logs could unintentionally include sensitive information such as personal names or email addresses.
 Mitigation: Offer an optional Data Loss Prevention (DLP) layer that redacts PII and replaces identifiers with anonymized role labels before processing.
+
 Change Management
 Users may be surprised or confused by automated workspace creation and configuration.
 Mitigation: Provide clear previews of proposed changes, post transparent announcements, and include rollback or archival options to maintain user confidence.
@@ -327,16 +333,22 @@ POST /proposals/{id}/feedback — Stores user feedback.
 
 ## 10. Public Interfaces
 This feature provides several user-facing interaction points within Slack, each designed to guide the team smoothly through the workspace structure generation process — from initial setup to review and confirmation.
+
 Slash Command — /autostructure
 Initiates the intake and creation process. When the command is run, it launches the intake workflow where users can provide project details to begin generating a workspace structure.
+
 Shortcut — “Generate Structure from Thread”
 Allows users to trigger structure generation directly from an existing Slack conversation. It automatically seeds the IntakeForm with relevant context, saving time and maintaining discussion continuity.
+
 Home Tab
 Serves as the central dashboard within Slack. It displays current jobs, past generations, and quick-access actions for creating new structures or managing existing ones.
+
 Intake Modal
 Collects essential setup information from the user, including project goals, constraints, timelines, and key participants. This ensures the AI proposal aligns with the team’s requirements.
+
 Proposal Review Modal
 Presents the AI-generated structure for user review. The team can make edits, approve, or request changes before the structure is finalized, ensuring transparency and control.
+
 Confirmation Modal
 Provides a final summary of proposed changes, including expected channel and group creations. Users can confirm or cancel before any updates are applied to the workspace.
 
@@ -396,14 +408,19 @@ Guardrails: Validator blocks disallowed names and risky channel patterns.
 ## 13. Risks to Completion
 
 This feature carries several potential risks that could affect delivery timelines, user adoption, and performance. Each risk is paired with a clearly defined probability, project impact level, and mitigation plan.
+
 App Review & Distribution — Medium probability / Medium impact.
 Slack’s review process could delay public release. The team will prepare documentation, scope rationale, and screenshots early, and conduct a private beta before general availability.
+
 Model Cost and Latency — Medium probability / High impact.
 Generating structural proposals with the model may be slow or expensive. To mitigate, prompts will be cached, smaller draft models used, and results streamed progressively to users.
+
 Customer Policy Variance — High probability / Medium impact.
 Workspaces differ in naming and privacy rules. Policies will be data-driven and configurable, with editable templates exposed in the admin settings.
+
 Testing Realism — Medium probability / Medium impact.
 Limited real data before launch could hinder testing accuracy. The team will build synthetic workspaces and a golden dataset to benchmark generation quality.
+
 Adoption Risk — High probability / High impact.
 Some teams may hesitate to allow automated creation of channels or groups. To address this, the product will emphasize preview diffs, rollback capabilities, and clear onboarding.
 
