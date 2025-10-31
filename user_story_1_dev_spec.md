@@ -1,7 +1,9 @@
-User Story 1
+# User Story 1
 Version/Date: v4.0 — 2025-10-31
 Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
-1. Header
+
+
+## 1. Header
 Title: AI-Generated Slack Workspace Structure — Simplified v1 (User Story #1)
 User Story:
 As a project team, we want Slack to use AI to automatically generate and create an optimized structure for workspaces, channels, and subgroups so that communication is organized, clear, and scalable from the start without requiring manual setup.
@@ -13,7 +15,7 @@ Percentage of proposals accepted without edits: >60%
 Channel sprawl reduction after 30 days: ≥25%
 Team satisfaction (CSAT): ≥4/5
 
-2. Architecture Diagram
+## 2. Architecture Diagram
 
 ![ alt text](1A.png)
 
@@ -77,7 +79,7 @@ Optional DLP ensures sensitive data is masked before sending anything to the AI 
 Information Flow:
 Trigger → Intake → ContextHarvest → Generation → Validation → Review → Approval → Apply → Audit
 
-3. Class Diagram
+## 3. Class Diagram
 
 ![ alt text](1C.png)
 
@@ -166,7 +168,7 @@ ApplyService builds the approved structure in Slack through SlackGateway, which 
 Together, these classes form a clear, modular system that separates decision-making (AI) from execution (Slack integration).
 
 
-4. List of Classes
+## 4. List of Classes
 The following classes define the core entities, logic components, and service interfaces that support automated workspace structure generation. Each class has a specific, clearly scoped purpose within the overall workflow.
 StructureJob
 Serves as the persistent record for each workflow run. It tracks job status, ownership, and timestamps from creation through completion, enabling full process traceability.
@@ -202,7 +204,7 @@ Prompt
 Defines the structured instruction templates and contextual parameters sent to the LLM. Every prompt is stored for auditability, reproducibility, and model-tuning analysis.
 
 
-5. State Diagram
+## 5. State Diagram
 
 ![ alt text](1S.png)
 
@@ -225,7 +227,7 @@ Each job moves through predictable stages—from creation to completion—with a
 If something goes wrong (like missing data or API errors), it transitions to Failed.
 Retry mechanisms allow the team to recover from temporary issues (like network errors) without restarting from scratch.
 
-6. Flow Chart
+## 6. Flow Chart
 Scenario Label: SC1 — Generate and Apply Workspace Structure (User Story #1)
 
 ![ alt text](1F.png)
@@ -257,7 +259,7 @@ The AI Generator builds a proposal and the Validator checks it for quality.
 The team reviews it in Slack—approving or requesting changes.
 Once approved, the structure is applied automatically and logged for future review.
 
-7. Development Risks and Mitigations
+## 7. Development Risks and Mitigations
 The team identified several key risks that could impact performance, user trust, or data safety during implementation of the workspace-generation feature. Each risk includes a clear description and corresponding mitigation plan.
 Slack API Rate Limits
 Too many rapid operations—such as channel creation or user invitations—may trigger throttling by Slack’s API.
@@ -279,7 +281,7 @@ Users may be surprised or confused by automated workspace creation and configura
 Mitigation: Provide clear previews of proposed changes, post transparent announcements, and include rollback or archival options to maintain user confidence.
 
 
-8. Technology Stack
+## 8. Technology Stack
 Language/Runtime: TypeScript (Node.js 20)
 Frameworks: Bolt for Slack (Events & Interactivity), Fastify (REST API)
 Infrastructure: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X-Ray or OpenTelemetry for end-to-end observability
@@ -289,7 +291,7 @@ CI/CD: GitHub Actions, Terraform (Infrastructure as Code)
 Testing: Jest (unit), Pact (contract), Playwright (UI flows), k6 (load & apply-phase)
 
 
-9. APIs
+## 9. APIs
 Incoming Slack APIs
 POST /slack/events — Receives event data and app mentions.
 POST /slack/interactions — Handles modals, buttons, and block actions.
@@ -303,7 +305,7 @@ POST /proposals/{id}/approve — Marks as approved.
 POST /proposals/{id}/apply — Executes ApplyService.
 POST /proposals/{id}/feedback — Stores user feedback.
 
-10. Public Interfaces
+## 10. Public Interfaces
 This feature provides several user-facing interaction points within Slack, each designed to guide the team smoothly through the workspace structure generation process — from initial setup to review and confirmation.
 Slash Command — /autostructure
 Initiates the intake and creation process. When the command is run, it launches the intake workflow where users can provide project details to begin generating a workspace structure.
@@ -319,7 +321,7 @@ Confirmation Modal
 Provides a final summary of proposed changes, including expected channel and group creations. Users can confirm or cancel before any updates are applied to the workspace.
 
 
-11. Data Schemas (SQL DDL)
+## 11. Data Schemas (SQL DDL)
 ![ alt text](1D.png)
 
 erDiagram
@@ -362,7 +364,7 @@ erDiagram
 
 
 
-12. Security and Privacy
+## 12. Security and Privacy
 Least Privilege Scopes: Only essential Slack permissions are requested.
 Data Minimization: Avoid storing sensitive user info; use role placeholders.
 Encryption: TLS for data in transit; AES-256 at rest with AWS KMS.
@@ -371,7 +373,7 @@ Retention: Default 30-day log retention, configurable per workspace.
 Optional DLP: Redacts personal data in prompts before AI calls.
 Guardrails: Validator blocks disallowed names and risky channel patterns.
 
-13. Risks to Completion
+## 13. Risks to Completion
 
 This feature carries several potential risks that could affect delivery timelines, user adoption, and performance. Each risk is paired with a clearly defined probability, project impact level, and mitigation plan.
 App Review & Distribution — Medium probability / Medium impact.
@@ -385,7 +387,7 @@ Limited real data before launch could hinder testing accuracy. The team will bui
 Adoption Risk — High probability / High impact.
 Some teams may hesitate to allow automated creation of channels or groups. To address this, the product will emphasize preview diffs, rollback capabilities, and clear onboarding.
 
-LLM (GPT 5) Chatlogs:
+## LLM (GPT 5) Chatlogs:
 https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
 https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
 https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253  
