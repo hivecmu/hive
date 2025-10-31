@@ -425,6 +425,6 @@ Adoption Risk — High probability / High impact.
 Some teams may hesitate to allow automated creation of channels or groups. To address this, the product will emphasize preview diffs, rollback capabilities, and clear onboarding.
 
 ## LLM (GPT 5) Chatlogs:
-https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
-https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
-https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253  
+- https://chatgpt.com/share/68f80cb0-22d0-800a-8b7b-64b253da48b9 
+- https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
+- https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253  

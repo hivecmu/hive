@@ -537,6 +537,6 @@ Teams might be surprised by large-scale automatic updates or file reorganization
 Mitigation: Add detailed preview modals, confirmation steps, and undo functionality to maintain transparency and control.
 
 ## Chat GPT Chat Log:
-https://chatgpt.com/share/68f969e6-fe74-800d-9ca0-329833bca32c 
-https://chatgpt.com/share/690140e9-ee64-800a-a2dd-8cca0904fd45
-https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
+- https://chatgpt.com/share/68f969e6-fe74-800d-9ca0-329833bca32c 
+- https://chatgpt.com/share/690140e9-ee64-800a-a2dd-8cca0904fd45
+- https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
