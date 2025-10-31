@@ -1,326 +1,516 @@
-# Dev Spec — SA2: Cross-Workspace “Search Once”
-
-## 0) Header
-**Title:** SA2 – Cross-Workspace “Search Once”
-
-**Version:** v1.0 (2025-09-24)
-
-**Scope:** Provide a single search box inside the Slack app that queries across **all connected workspaces and content providers** (Slack, email, cloud drives, wikis, code hosts) and returns **deduplicated, permission-aware** results with fast filtering. This feature **depends on SA1 – Project Hub Auto-Organizer** for unified ingestion, normalization, deduplication, and indexing.
-
-**Assumptions:**
-- SA1 provides a consolidated, deduped corpus with FTS indices and provenance per item.
-- One org → many workspaces (Slack workspaces & other providers) authenticated via OAuth; read-only scopes where possible.
-- Search must respect provider/source permissions and Slack’s user identity mapping.
-
-**Rationale:** Students under time pressure shouldn’t guess platforms. A single query must surface the right files/messages fast, with zero context switching.
-
-**Primary User Story (SA2.U1):**
-> As a student under time pressure, I want a cross-workspace “search once” function so that I can quickly find files or messages without guessing the platform.
-
-**User Story Relationship:**
-- **SA1 – Project Hub Auto-Organizer**: *“As a student team leader, I want to automatically organize project files into one central hub so that no one wastes time searching across multiple platforms.”*  
-- **SA2 – Cross-Workspace Search**: *“As a student under time pressure, I want a cross-workspace ‘search once’ function so that I can quickly find files or messages without guessing the platform.”*  
-
-**Dependency Explanation:** SA2 relies directly on SA1. SA1 ingests, normalizes, deduplicates, and indexes content into a central hub. SA2 does not re-ingest; it queries that hub to power the search experience. SA1 provides the **foundation (organized corpus, provenance, permissions, and FTS index)**, while SA2 delivers the **user experience (query planning, ranking, snippets, and Slack UI)**. This ensures that search results are accurate, permission-aware, and fast, without duplicating ingestion logic.
-
----
-
-## 1) Architecture Diagram (text)
-**Modules and Components** (boxes → classes listed in §3; labels in parentheses)
-
-### Client (Slack App – React 18 + TS)
-- SearchHomeView (SA2.C1)
-- SearchInputBar (SA2.C2)
-- ResultsList (SA2.C3)
-- FacetFilters (SA2.C4)
-- ResultPreviewPane (SA2.C5)
-- RecentSearches (SA2.C6)
-- SettingsModal (SA2.C7)
-- NotificationToast (SA2.C8)
-
-### Backend (Node 20 + TS)
-- SearchAPI (REST+GraphQL) (SA2.B1)
-- QueryPlanner (SA2.B2)
-- PermissionsResolver (SA2.B3)
-- RankingService (SA2.B4)
-- SnippetService (SA2.B5)
-- SuggestService (auto-complete) (SA2.B6)
-- MetricsLogger (SA2.B7)
-- AccessControl (SA2.B8)
-
-### Dependencies (from SA1)
-- Indexer/Corpus (PG FTS) (SA1.B9)
-- Canonical Entities (Files, Messages, Tags) (SA1.D*)
-- AuditLogger (SA1.B12)
-- ConnectorService (SA1.B3)
-
-### Persistence
-- Postgres 16 (FTS, search logs, sessions) (SA2.P1)
-- Redis (search cache, hot facets) (SA2.P2)
-
-### Integrations
-- Slack OAuth & user identity mapping (SA2.I1)
-- SA1 HubAPI (internal) (SA2.I2)
-
-**Information Flows**
-1. **Search Submit:** Client → SearchAPI.
-2. **Plan & Resolve:** SearchAPI → QueryPlanner → PermissionsResolver → SA1 corpus.
-3. **Execute:** QueryPlanner → PG FTS (SA1 Index) → collect candidates.
-4. **Rank & Snippet:** RankingService orders results; SnippetService builds highlights.
-5. **Respond:** SearchAPI → Client with page/cursor, facets, and snippets.
-6. **Metrics & Audit:** MetricsLogger → PG; AuditLogger (via SA1) for compliance.
-
-**Rationale:** Separates concerns: plan/permissions/rank/snippet so we can tune each without breaking others.
-
----
-
-## 2) Class Diagram (conceptual)
-### Backend Core
-**SearchAPI (SA2.B1)**
-- Fields: httpServer: HttpServer, gqlServer: GraphQLServer
-- Methods: postSearch(req: SearchRequest): Promise<SearchResponse>, getSuggest(q: string): Promise<SuggestResponse>, getFacets(q: string): Promise<FacetResponse>
-
-**QueryPlanner (SA2.B2)**
-- Fields: analyzers: Analyzer[], defaultScope: SearchScope
-- Methods: plan(query: QuerySpec): PlannedQuery, expandFilters(f: FilterSpec): FilterSpec
-
-**PermissionsResolver (SA2.B3)**
-- Fields: identityMapper: IdentityMap, policy: RBACPolicy
-- Methods: resolveUserScopes(userId: UUID): ScopeSet, filterByPerm(items: Item[], user: User): Item[]
-
-**RankingService (SA2.B4)**
-- Fields: weights: RankWeights, recencyHalfLifeDays: number
-- Methods: score(items: Item[], context: RankContext): RankedItem[]
-
-**SnippetService (SA2.B5)**
-- Fields: highlighter: Highlighter, maxLen: number
-- Methods: buildSnippets(items: Item[], q: string): ItemWithSnippets[]
-
-**SuggestService (SA2.B6)**
-- Fields: trie: PrefixTrie, popular: LruCache<string, number>
-- Methods: suggest(prefix: string, user: User): Suggestion[]
-
-**MetricsLogger (SA2.B7)**
-- Fields: sink: PgClient
-- Methods: logQuery(meta: QueryLog): void, logClick(meta: ClickLog): void
-
-**AccessControl (SA2.B8)**
-- Fields: policy: RBACPolicy
-- Methods: canSearch(user: User, scope: Scope): boolean
-
-### Client (Slack App)
-**SearchHomeView (SA2.C1)**
-- Fields: state: UIState
-- Methods: render(), onSubmit(), onFilterChanged()
-
-**SearchInputBar (SA2.C2)**
-- Fields: value: string
-- Methods: onChange(v: string), onSubmit(), onSuggest()
-
-**ResultsList (SA2.C3)**
-- Fields: items: ResultItem[], cursor: Cursor
-- Methods: onSelect(id: UUID), onLoadMore()
-
-**FacetFilters (SA2.C4)**
-- Fields: providers: Provider[], types: DocType[], dates: DateRange
-- Methods: onToggle(), onApply()
-
-**ResultPreviewPane (SA2.C5)**
-- Fields: activeItem?: ResultItem
-- Methods: renderPreview(item: ResultItem)
-
-**RecentSearches (SA2.C6)**
-- Fields: entries: RecentEntry[]
-- Methods: show(), select(entryId: UUID)
-
-**SettingsModal (SA2.C7)**
-- Fields: defaultScope: SearchScope, keyboardShortcuts: Shortcut[]
-- Methods: save(), restoreDefaults()
-
-**NotificationToast (SA2.C8)**
-- Fields: message: string, level: 'info'|'warn'|'error'
-- Methods: show(msg: string), dismiss()
-
-### Data Structures (SA2.D*)
-- **SearchRequest**: { q: string, scope: 'workspace'|'org'|'all', filters: FilterSpec, pageSize: int, cursor?: string }
-- **SearchResponse**: { items: ResultItem[], facets: FacetCounts, cursor?: string, tookMs: int }
-- **ResultItem**: { id: UUID, title: string, type: DocType, snippet: string, source: Source, modifiedAt: timestamptz, owner: string, permalink?: string }
-- **FilterSpec**: { providers?: Provider[], types?: DocType[], dateFrom?: timestamptz, dateTo?: timestamptz, owners?: string[] }
-- **RankWeights**: { text: number, recency: number, clickPrior: number, sourceBoost: Map<Source, number> }
-
----
-
-## 3) List of Classes (by module)
-**Client (Slack App)**
-- SA2.C1 SearchHomeView – Top-level view inside Slack; orchestrates search and results.
-- SA2.C2 SearchInputBar – Query entry + suggestions.
-- SA2.C3 ResultsList – Virtualized list of results with infinite scroll.
-- SA2.C4 FacetFilters – Provider/type/date/owner filters.
-- SA2.C5 ResultPreviewPane – Inline preview (file/message snippet) where allowed.
-- SA2.C6 RecentSearches – Local recent terms and server-side pinned queries.
-- SA2.C7 SettingsModal – Defaults and shortcuts.
-- SA2.C8 NotificationToast – Non-blocking feedback.
-
-**Backend (Node/TS)**
-- SA2.B1 SearchAPI – REST+GraphQL endpoints.
-- SA2.B2 QueryPlanner – Query parsing, filter expansion.
-- SA2.B3 PermissionsResolver – Scope calc & per-item filtering.
-- SA2.B4 RankingService – Final scoring and ordering.
-- SA2.B5 SnippetService – Highlighted snippets.
-- SA2.B6 SuggestService – Typeahead.
-- SA2.B7 MetricsLogger – Queries/clicks logs.
-- SA2.B8 AccessControl – RBAC decisions.
-
-**Persistence & Integrations**
-- SA2.P1 Postgres 16 – search_logs, search_sessions, saved_queries.
-- SA2.P2 Redis – hot results cache, suggestions cache.
-- SA2.I1 Slack OAuth/Identity – map Slack user → org user.
-- SA2.I2 SA1 HubAPI – internal calls to query corpus/index.
-
-**Note:** SA2 introduces no new connectors. All source content is provided by SA1.
-
----
-
-## 4) State Diagrams
-### Query Lifecycle States (SA2.S1)
-- **Idle** → **Typing** → **Planned** → **Executing** → **Ranked** → **Rendered**
-- Error branches: **RateLimited**, **AuthExpired**, **NoResults**, **PartialResults**
-
-**Transitions & Methods**
-- Idle → Typing: Client.SearchInputBar.onChange()
-- Typing → Planned: Backend.QueryPlanner.plan()
-- Planned → Executing: Backend.SearchAPI.postSearch()
-- Executing → Ranked: Backend.RankingService.score()
-- Ranked → Rendered: Client.ResultsList.render()
-- Any → AuthExpired: Backend.PermissionsResolver.filterByPerm() detects missing token
-- Executing → PartialResults: Backend.SearchAPI posts partial with warning (timeouts)
-
-### Identity/Scope Resolution (SA2.S2)
-- **Unmapped** → **MappedToOrg** → **ScopesResolved** → **PermsApplied**
-- Methods: Backend.PermissionsResolver.resolveUserScopes(), filterByPerm()
-
-**Initial States:** Idle (S1), Unmapped (S2)
-
----
-
-## 5) Flow Chart (primary scenario SA2.U1)
-**Narrative:** User focuses the Slack app search box, types a query, selects a filter for “All Providers,” and hits Enter. The system resolves identity and scopes, plans the query, executes against the SA1 index, ranks and snippets results, and renders the first page with facets. User opens preview, copies permalink, and shares.
-
-**Key Steps → State Labels**
-1. Focus search (Idle→Typing – SA2.S1)
-2. Submit query (Typing→Planned – QueryPlanner.plan())
-3. Resolve identity & scope (Unmapped→PermsApplied – SA2.S2)
-4. Execute FTS (Planned→Executing – SearchAPI.postSearch())
-5. Score & snippet (Executing→Ranked – RankingService, SnippetService)
-6. Render page (Ranked→Rendered – ResultsList.render())
-7. Interact with facets/pagination (Rendered→Planned/Executing loops)
-
-**Start:** Idle; **End:** Rendered
-
----
-
-## 6) Development Risks and Failures (with recovery)
-- **R1: Permission leaks via stale tokens** – Mitigate with short-lived access tokens, server-side checks each request; re-auth flow in SettingsModal.
-- **R2: Slow queries on large corpora** – Use generated tsvector + GIN, pre-computed facets, Redis cache for popular queries, result caching keyed by (q, filters, scope, userId).
-- **R3: Ranking dissatisfaction** – Expose sort by Modified/Owner; adjustable weights behind a feature flag; offline A/B using query logs.
-- **R4: Snippet truncation on binary/PDF** – Fall back to title/metadata; show “Open at source.”
-- **R5: Multi-workspace identity mismatch** – Maintain authoritative identity map; on conflicts, degrade to per-provider checks only.
-- **R6: Slack app rate limits** – Batch UI updates; exponential backoff; surface PartialResults with retry option.
-- **R7: SA1 index lag** – Show freshness banner; offer “Request reindex” (queued via SA1 ReindexJob).
-
----
-
-## 7) Technology Stack (locked)
-- **Frontend:** React 18 + TypeScript (Slack App Home & Modals), Tailwind (optional)
-- **Backend:** Node 20 + TypeScript
-- **APIs:** REST (OpenAPI 3.1) + GraphQL (/graphql)
-- **Auth:** Slack OAuth for app install + Clerk JWT for session validation (server-side)
-- **Data:** Postgres 16 (FTS + logs), Redis (cache)
-- **No ML/Vector search** in v1; rely on SA1’s PG-FTS.
-
----
-
-## 8) APIs (public surface via SearchAPI)
-### 8.1 REST (examples)
-- **POST /search** → body: SearchRequest → **200** SearchResponse
-- **GET /suggest?q=** → **200** SuggestResponse
-- **GET /facets?q=&filters=** → **200** FacetResponse
-- **POST /saved-queries** → SaveQueryRequest → **201** SavedQuery
-- **GET /saved-queries** → **200** SavedQuery[]
-
-**Types**
-- **SearchRequest** { q: string; scope: 'workspace'|'org'|'all'; filters?: FilterSpec; pageSize?: int; cursor?: string }
-- **SearchResponse** { items: ResultItem[]; facets: FacetCounts; cursor?: string; tookMs: int; warnings?: string[] }
-
-### 8.2 GraphQL (selected)
-```
-type ResultItem { id: ID!, title: String!, type: String!, source: String!, owner: String, modifiedAt: String!, snippet: String, permalink: String }
-
-type FacetCounts { providers: [Facet!]!, types: [Facet!], owners: [Facet!], dates: [Facet!] }
-
-type Facet { name: String!, count: Int! }
-
-type Query {
-  search(q: String!, scope: String, filters: JSON, after: String): SearchConnection!
-  suggest(prefix: String!): [String!]!
-}
-
-type SearchConnection { edges: [ResultEdge!]!, pageInfo: PageInfo!, facets: FacetCounts!, tookMs: Int! }
-
-type ResultEdge { node: ResultItem!, cursor: String! }
-
-type PageInfo { endCursor: String, hasNextPage: Boolean! }
-```
-
----
-
-## 9) Public Interfaces (who calls what)
-- **Client ↔ SearchAPI:** REST for search/suggest/facets; GraphQL for infinite-scroll reads and rich fragments for previews.
-- **SearchAPI ↔ SA1 HubAPI:** Internal gRPC/REST to query canonical corpus and retrieve item metadata/permalinks.
-- **Admin:** GET /saved-queries; metrics dashboards (internal only).
-
----
-
-## 10) Data Schemas (Postgres 16)
-**search_logs (SA2.DB1)**
-- id UUID PK, user_id UUID, org_id UUID, q text, filters jsonb, scope text, took_ms int, result_count int, created_at timestamptz
-
-**click_logs (SA2.DB2)**
-- id UUID PK, user_id UUID, org_id UUID, item_id UUID, source text, rank int, clicked_at timestamptz
-
-**saved_queries (SA2.DB3)**
-- id UUID PK, user_id UUID, org_id UUID, name text, q text, filters jsonb, scope text, created_at timestamptz
-
-**identity_map (SA2.DB4)**
-- id UUID PK, user_id UUID, provider text, provider_user_id text, last_seen timestamptz
-
-**caches (SA2.DB5)**
-- key text PK, value bytea, expires_at timestamptz
-
-**Note:** Content entities (files/messages/tags) remain defined by SA1 tables.
-
----
-
-## 11) Security & Privacy
-**PII (temporary):** user_id, provider_user_id (mapped), query text, click events. Needed for permissions, relevance, and abuse prevention. Transport over TLS; server-side only.
-
-**PII (long-term):** minimal logs (search_logs/click_logs), saved_queries names/terms. Retention: 90 days for logs; user-deleted on request. Encryption at rest for logs; role-based access to tables.
-
-**Access Control:** RBAC by org/workspace; every item checked against PermissionsResolver using SA1 provenance + provider scopes.
-
-**Auditing:** All search and admin actions logged via SA2.DB1/
-
-
-## 12) Risks to Completion
-**Learning Curve: Slack App Home ergonomics and modals UX; PG-FTS tuning.
-
-**Design/Implement:** QueryPlanner & PermissionsResolver integration with SA1 provenance.
-
-**Verification:** Permission-aware search e2e tests across multiple providers and workspaces.
-
-**Maintenance:** Schema migrations for logs at scale; rank weight tuning without ML.
-
-**Updates:** Slack API changes; contract tests and capability flags. Criteria to adopt updates: security fixes → ASAP; minor features → after canary.
-
-**Support:** Open-source libs pinned; security fixes tracked via dependabot; no vendor ML dependencies.
-
+# User Story 3
+
+Authors: Akeil Smith, Lexi Kronowitz, Miguel Almeida
+
+Version/Date: v4.0 — 2025-10-31
+
+## 1. Header
+Title: Cross-Workspace “Search Once” — Simplified v1 (User Story #3)
+
+User Story:
+As students or team members under time pressure, the team wants Slack to support a cross-workspace “search once” capability so that anyone can quickly find files or messages across connected workspaces and platforms without guessing where to look.
+Outcome:
+
+A unified search experience that queries multiple connected sources (Slack channels, DMs, files, and approved external connectors), ranks results semantically, and lets users refine, save, and share searches from within Slack with optional alerts and subscriptions.
+
+Primary KPIs:
+Time to first relevant result < 3 s
+Top-1 precision ≥ 0.6
+Top-5 recall ≥ 0.85
+Saved-search reuse rate ≥ 40 %
+User satisfaction (CSAT ≥ 4 / 5)
+
+## 2. Architecture Diagram
+
+![ alt text](3A.png)
+
+flowchart LR
+  subgraph SlackClient[Slack Client (User Workspace)]
+    H[HomeTab]
+    M[SearchRefineModal]
+    SC[/SlashCommands/]
+    SHT[(Shortcuts)]
+  end
+
+  subgraph Backend[Backend (Cloud)]
+    API[EventsAndInteractionsAPI]
+    JobService[JobService + StateMachine]
+    Generator[Generator (LLM + Heuristics)]
+    Validator[Validator (Policy + Quality)]
+    ApplyService[ApplyService]
+    SlackGateway[SlackGateway]
+    ConnectorGateway[ConnectorGateway]
+    DB[(PostgreSQL + pgvector)]
+    Queue[(Queue)]
+    Redis[(Redis Cache/Locks)]
+    S3[(Artifact Storage)]
+    Observability[(Telemetry/Logs)]
+  end
+
+  subgraph ThirdParty[Third-Party]
+    LLM[(Model Provider)]
+    DLP[(PII Redaction)]
+  end
+
+  SC --> API
+  SHT --> API
+  H <--> API
+  M <--> API
+
+  API --> JobService
+  JobService -->|persist| DB
+  JobService -->|enqueue| Queue
+  JobService -->|harvestContext| SlackGateway
+  JobService -->|fetchExternalSources| ConnectorGateway
+  JobService -->|preparePrompts| Generator
+  Generator -->|useRules| Validator
+  Generator --> LLM
+  Generator -->|proposal| DB
+  Validator -->|validateAndScore| DB
+  JobService -->|renderForReview| API
+  JobService -->|apply| ApplyService
+  ApplyService --> SlackGateway
+  ApplyService --> ConnectorGateway
+  ApplyService -->|audit| DB
+  JobService --> S3
+  JobService --> Observability
+  JobService <--> Redis
+  JobService --> DLP
+
+Explanation:
+When the team runs a search from Slack (via slash command or shortcut), the request reaches the EventsAndInteractionsAPI, which starts a SearchJob handled by the JobService. It collects context from Slack and external sources (Drive, Gmail, GitHub, etc.), builds a prompt for the Generator, and calls the LLM to create a federated search plan. The Validator checks policies and privacy rules before results are shown for review. Once approved, the ApplyService saves the search and sets alerts. Redis holds temporary state, S3 stores artifacts, and Observability logs events. The DLP layer removes sensitive data before model use.
+Information Flow: Trigger → Intake → ContextHarvest → Generation → Validation → Review → Approval → Apply → Audit
+
+## 3. Class Diagram
+
+![ alt text](3C.png)
+
+classDiagram
+  class SearchJob {
+    +UUID id
+    +String workspaceId
+    +JobStatus status
+    +String createdByUserId
+    +Instant createdAt
+    +Instant updatedAt
+  }
+
+  class SearchProposal {
+    +UUID id
+    +UUID jobId
+    +int version
+    +float score
+    +String rationale
+    +Blueprint[] blueprints
+  }
+
+  class Blueprint {
+    +String resourceType
+    +String name
+    +String description
+    +Map settings
+    +Op[] ops
+    +UUID[] dependsOn
+  }
+
+  class Policy { +Map~String,Any~ rules }
+  class ContextPackage { +IntakeForm intake; +SearchContext context }
+  class IntakeForm { +String query; +String[] sources; +String[] filters; +String timeRange; +String[] constraints }
+  class SearchContext { +Source[] sources; +Scope[] scopes; +User[] users; +Channel[] channels }
+  class ResultItem { +String source; +String externalId; +String title; +String snippet; +String url; +float score; +Map~String,Any~ facets }
+  class ApplyResult { +String savedSearchId; +String[] subscriptions }
+  class ValidationResult { +bool ok; +Issue[] issues }
+  class Issue { +String code; +String message; +String severity }
+  class Blocks
+  class Prompt
+
+  class JobService {
+    +create(IntakeForm)
+    +advance(UUID, JobStatus)
+    +fail(UUID, String)
+    +harvestContext(UUID)
+    +buildPrompt(UUID)
+    +renderForReview(UUID)
+  }
+
+  class Generator { +generate(ContextPackage, Policy): SearchProposal }
+  class Validator {
+    +validate(SearchProposal, Policy): ValidationResult
+    +score(SearchProposal): float
+  }
+  class ApplyService { +apply(SearchProposal): ApplyResult }
+  class SlackGateway {
+    +searchSlack(query, scopes[])
+    +openModal(blocks)
+    +pushView(blocks)
+  }
+  class ConnectorGateway {
+    +searchDrive(query, filters)
+    +searchGmail(query, filters)
+    +searchGitHub(query, filters)
+    +searchCanvas(query, filters)
+    +searchCalendar(query, filters)
+  }
+
+  SearchJob --> SearchProposal
+  SearchProposal o-- Blueprint
+  ContextPackage --> IntakeForm
+  ContextPackage --> SearchContext
+  JobService --> SearchJob
+  JobService --> Generator
+  JobService --> Validator
+  ApplyService --> SearchProposal
+  ApplyService --> SlackGateway
+  ApplyService --> ConnectorGateway
+
+Explanation:
+Each class has a defined purpose: SearchJob tracks status, SearchProposal stores plans, and Blueprint describes actions. The Generator creates plans via LLM logic; Validator checks rules; ApplyService executes through Slack and connector gateways. Shared types mirror User Stories 1 and 2 for consistency.
+
+## 4. List of Classes
+
+The system architecture consists of several key classes that collectively manage the end-to-end search process, from job initiation to policy validation and execution across connected services:
+
+SearchJob – Tracks the overall search workflow, including its current status and assigned ownership.
+
+SearchProposal – Stores the LLM-generated federated search plan and its associated confidence score.
+
+Blueprint – Defines the ordered sequence of search actions and their dependencies.
+
+Policy – Contains privacy, access, and scope rules used to validate search operations.
+
+ContextPackage – Merges user inputs with relevant contextual data from connected sources.
+
+ResultItem – Provides a standardized structure for representing results across multiple platforms.
+
+ApplyResult – Logs and records identifiers for saved searches and ongoing subscriptions.
+
+JobService – Serves as the orchestrator that coordinates the full job execution lifecycle.
+
+Generator – Leverages the LLM to dynamically generate search plans based on context and intent.
+
+Validator – Verifies that generated plans comply with all policy and quality requirements.
+
+ApplyService – Executes validated plans through appropriate data gateways.
+
+SlackGateway – Handles Slack-specific UI rendering and search integration within the workspace.
+
+ConnectorGateway – Interfaces with external systems such as Google Drive, Gmail, GitHub, Canvas, and Calendar.
+
+Blocks / Prompt – Define both the Slack UI block layouts and the LLM instruction templates used during generation.
+
+
+## 5. State Diagram
+
+![ alt text](3S.png)
+
+stateDiagram-v2
+  [*] --> Created
+  Created --> IntakeReady
+  IntakeReady --> Generating
+  Generating --> Review
+  Review --> Approved
+  Approved --> Applying
+  Applying --> Done
+  Created --> Failed
+  IntakeReady --> Failed
+  Generating --> Failed
+  Review --> Failed
+  Applying --> Applying : Retry/Backoff
+
+Explanation:
+The job follows a linear sequence with an approval gate. Failures can retry without data loss, matching the lifecycle pattern in other stories.
+
+## 6. Flow Chart
+![ alt text](3F.png)
+
+Scenario Label: SC3 — Cross-Workspace Search Once
+flowchart TD
+  Start((Start)) --> A[Team runs "/searchonce"\n[Created]]
+  A --> B[IntakeModal Completed\n[IntakeReady]]
+  B --> C{HarvestSourcesAndScopes?}
+  C -- Yes --> D[ListAuthorizedConnectorsAndChannels\n[IntakeReady]]
+  C -- No --> G[BuildPromptAndPolicies\n[Generating]]
+  D --> E[ContextSnapshotSaved\n[IntakeReady]]
+  E --> G
+  G --> H[GenerateSearchProposal (Generator)\n[Generating]]
+  H --> I[ValidateAndScore (Validator)\n[Generating]]
+  I --> J[RenderResultsForReview (Home/Modal)\n[Review]]
+  J -- ApproveSaveOrAlerts --> JA[MarkApproved\n[Approved]]
+  JA --> K[ApplyViaGateways (ApplyService)\n[Applying]]
+  J -- RefineQuery --> H
+  K --> L[StoreResultSnapshotAndFacets\n[Applying]]
+  L --> M[(AuditLogAndFeedback)]
+  M --> Done((End\n[Done]))
+
+Explanation:
+The user submits a query; the system collects context and authorization, builds a federated plan, validates it, and presents ranked results for review. Approved plans save searches and set alerts. All steps emit auditable logs.
+
+## 7. Development Risks and Failures
+
+The following risks have been identified for the project, each evaluated for probability, impact, and corresponding mitigation strategies. These risks encompass delays, model performance, user adoption, data security, and integration reliability.
+
+App Review Delays – Slack and connector approval processes may delay release timelines.
+Probability: Medium | Impact: Medium
+Mitigation: Prepare detailed scope documentation early and run a controlled private beta to gather validation.
+
+Model Cost/Latency – LLM-based ranking could increase processing time or operational cost.
+Probability: Medium | Impact: High
+Mitigation: Implement prompt caching and stream partial results to maintain responsiveness.
+
+Policy Variance – Different Slack workspaces may have inconsistent source permissions.
+Probability: High | Impact: Medium
+Mitigation: Develop configurable templates and visible badges to adapt rules across environments.
+
+Testing Realism – Limited access to live datasets before launch could reduce test accuracy.
+Probability: Medium | Impact: Medium
+Mitigation: Generate synthetic workspaces and use benchmark datasets to simulate real-world conditions.
+
+Adoption Risk – Users may be skeptical about result coverage or ranking accuracy.
+Probability: High | Impact: High
+Mitigation: Communicate ranking logic transparently and provide in-app feedback mechanisms.
+
+Slack API Rate Limits – High request volumes may trigger Slack throttling.
+Probability: Medium | Impact: Medium
+Mitigation: Queue and throttle requests intelligently to comply with rate limits.
+
+Insufficient Permissions – Missing or expired connector authorizations may block operations.
+Probability: Low | Impact: High
+Mitigation: Implement guided OAuth flows and fallback handling for limited-access scenarios.
+
+Low-Quality Proposals – LLM may generate incomplete or irrelevant search plans.
+Probability: Medium | Impact: Medium
+Mitigation: Introduce validator filters and optional manual review for plan refinement.
+
+Security / PII Leakage – Prompts or results could inadvertently include sensitive information.
+Probability: Low | Impact: High
+Mitigation: Apply data loss prevention (DLP) masking and encrypt all data at rest and in transit.
+
+Change Management – Users may expect complete coverage of all data sources upon launch.
+Probability: Medium | Impact: Medium
+Mitigation: Display source badges and coverage indicators to set clear expectations.
+
+
+
+## 8. Technology Stack
+Language/Runtime: TypeScript (Node.js 20)
+Frameworks: Bolt for Slack (Events & Interactivity), Fastify (REST API)
+Infrastructure: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X-Ray or OpenTelemetry for end-to-end observability
+Data: PostgreSQL + pgvector, Redis, S3
+AI: GPT-5 LLM with JSON schema validation (structured, deterministic outputs for safe integration)
+CI/CD: GitHub Actions, Terraform (Infrastructure as Code)
+Testing: Jest (unit), Pact (contract), Playwright (UI flows), k6 (load & apply-phase)
+
+## 9. APIs
+Incoming Slack
+POST /slack/events — Verifies URL; receives events and routes to handlers.
+POST /slack/interactions — Handles view submissions, buttons, and block actions.
+Internal REST
+POST /search/jobs — Creates a SearchJob; returns { jobId }.
+GET /search/jobs/{id} — Returns job status and proposal.
+POST /search/jobs/{id}/harvest — Collects connector context.
+POST /search/jobs/{id}/generate — Runs Generator; returns SearchProposal.
+POST /search/jobs/{id}/validate — Runs Validator; returns ValidationResult.
+POST /search/proposals/{id}/approve — Marks proposal approved.
+POST /search/proposals/{id}/apply — Executes ApplyService.
+POST /search/proposals/{id}/feedback — Stores user feedback.
+Service Interfaces
+JobService: create(), advance(), fail(), harvestContext(), buildPrompt(), renderForReview().
+Generator: generate(ctx, policy).
+Validator: validate(), score().
+ApplyService: apply().
+SlackGateway: searchSlack(), openModal(), pushView().
+ConnectorGateway: searchDrive(), searchGmail(), searchGitHub(), searchCanvas(), searchCalendar().
+
+## 10. Public Interfaces
+Slash Command: /searchonce → Opens Intake Modal; creates job on submit.
+Shortcut: “Search once from thread” → Seeds IntakeForm with inferred keywords.
+Home Tab: Displays recent/saved searches and “New Search” CTA.
+Modals:
+Intake Modal: User inputs query, sources, filters.
+Review Modal: Shows ranked results with save/alert toggles.
+Confirmation Modal: Shows summary and connector call counts.
+
+## 11. Data Schemas (SQL DDL)
+
+![ alt text](3D.png)
+
+erDiagram
+    Workspaces ||--o{ SearchJobs : has
+    SearchJobs ||--o{ IntakeForms : has
+    SearchJobs ||--o{ SearchProposals : has
+    SearchProposals ||--o{ Blueprints : contains
+    Workspaces ||--o{ Policies : has
+    SearchJobs ||--o{ AuditLogs : generates
+    SearchProposals ||--o{ Feedback : collects
+    SearchJobs ||--o{ Artifacts : produces
+    Workspaces ||--o{ Sources : configures
+    SearchJobs ||--o{ Results : returns
+    Results ||--o{ ResultEmbeddings : vectorized_by
+    Workspaces ||--o{ SavedSearches : stores
+    SavedSearches ||--o{ Subscriptions : schedules
+
+    Workspaces {
+      UUID id PK
+      string slack_team_id "UNIQUE NOT NULL"
+      string installer_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      jsonb settings "NOT NULL DEFAULT {}"
+    }
+
+    SearchJobs {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string status "ENUM created|intake_ready|generating|review|approved|applying|done|failed"
+      string created_by_user_id "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+      timestamptz updated_at "DEFAULT now()"
+    }
+
+    IntakeForms {
+      UUID id PK
+      UUID job_id FK "-> SearchJobs.id"
+      jsonb data "NOT NULL"
+    }
+
+    SearchProposals {
+      UUID id PK
+      UUID job_id FK "-> SearchJobs.id"
+      int version "NOT NULL"
+      numeric score "(5,2)"
+      text rationale
+      jsonb payload "NOT NULL"
+    }
+
+    Blueprints {
+      UUID id PK
+      UUID proposal_id FK "-> SearchProposals.id"
+      string resource_type "ENUM workspace_action|file_action|search_action"
+      string name "NOT NULL"
+      text description
+      jsonb settings "DEFAULT {}"
+      jsonb depends_on "DEFAULT []"
+      jsonb ops "DEFAULT []"
+    }
+
+    Policies {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      jsonb rules "NOT NULL"
+    }
+
+    AuditLogs {
+      UUID id PK
+      UUID job_id FK "-> SearchJobs.id"
+      string action "NOT NULL"
+      jsonb payload "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Feedback {
+      UUID id PK
+      UUID proposal_id FK "-> SearchProposals.id"
+      int rating "1..5"
+      text comments
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Artifacts {
+      UUID id PK
+      UUID job_id FK "-> SearchJobs.id"
+      string artifact_type "NOT NULL"
+      string s3_uri "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Sources {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string source_type "ENUM slack|drive|gmail|github|canvas|calendar"
+      string display_name "NOT NULL"
+      jsonb scopes "DEFAULT []"
+      jsonb settings "DEFAULT {}"
+      boolean enabled "DEFAULT true"
+    }
+
+    Results {
+      UUID id PK
+      UUID job_id FK "-> SearchJobs.id"
+      string source "NOT NULL"
+      string external_id "NOT NULL"
+      string title
+      string url
+      text snippet
+      numeric score "(5,2)"
+      jsonb facets "DEFAULT {}"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    ResultEmbeddings {
+      UUID id PK
+      UUID result_id FK "-> Results.id"
+      vector embedding
+    }
+
+    SavedSearches {
+      UUID id PK
+      UUID workspace_id FK "-> Workspaces.id"
+      string created_by "NOT NULL"
+      text query "NOT NULL"
+      jsonb sources "DEFAULT []"
+      jsonb filters "DEFAULT {}"
+      jsonb time_range "DEFAULT {}"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+    Subscriptions {
+      UUID id PK
+      UUID saved_search_id FK "-> SavedSearches.id"
+      string channel_id
+      string user_id
+      string cadence_cron "NOT NULL"
+      timestamptz created_at "DEFAULT now()"
+    }
+
+
+
+
+## 12. Security and Privacy
+Least-Privilege Scopes: Request minimal Slack and connector permissions.
+Data Minimization: Store only metadata; anonymize names.
+Encryption & Secrets: TLS + AES-256 via KMS; secrets in Secrets Manager.
+Access Controls: Per-workspace tokens and immutable audit logs.
+Retention: Default 30 days; configurable by admins.
+DLP Option: Redacts PII before LLM use.
+Guardrails: Validator enforces source allowlists and privacy scopes.
+
+## 13. Risks to Completion
+Several factors may affect timely completion and successful deployment of the project. Each identified risk includes its assessed probability, potential project impact, and corresponding mitigation strategy.
+
+App Review & Distribution – Slack and connector approval processes could delay the public release timeline.
+Probability: Medium | Impact: Medium
+Mitigation: Prepare all documentation, scope details, and screenshots early, and conduct a private beta to validate functionality prior to submission.
+
+Model Cost/Latency – LLM processing may introduce additional cost or response delays during query generation.
+Probability: Medium | Impact: High
+Mitigation: Implement prompt caching, batch processing, and continuous prompt optimization to improve efficiency and control costs.
+
+Customer Policy Variance – Different workspaces may enforce unique privacy or access policies that affect behavior.
+Probability: High | Impact: Medium
+Mitigation: Build configurable templates and a workspace-level policy editor to support flexible compliance.
+
+Testing Realism – Limited access to production-level data could reduce the accuracy of pre-launch validation.
+Probability: Medium | Impact: Medium
+Mitigation: Use synthetic datasets and golden query benchmarks to ensure realistic test coverage.
+
+Adoption Risk – Users may be hesitant to trust AI-driven ranking or automated search aggregation.
+Probability: High | Impact: High
+Mitigation: Prioritize transparent UX, show explainable ranking logic, and enable direct feedback channels to build confidence.
+
+
+
+
+
+## Chat GPT Chatlogs: 
+
+- https://chatgpt.com/share/690140e9-ee64-800a-a2dd-8cca0904fd45
+- https://chatgpt.com/share/6904f85f-a00c-800d-8a56-13c59fdac253 
