@@ -309,11 +309,17 @@ Mitigation: Provide clear previews of proposed changes, post transparent announc
 
 ## 8. Technology Stack
 Language/Runtime: TypeScript (Node.js 20)
+
 Frameworks: Bolt for Slack (Events & Interactivity), Fastify (REST API)
+
 Infrastructure: AWS Lambda + API Gateway (or Cloud Run), SQS, CloudWatch/X-Ray or OpenTelemetry for end-to-end observability
+
 Data: PostgreSQL + pgvector, Redis, S3
+
 AI: GPT-5 LLM with JSON schema validation (structured, deterministic outputs for safe backend integration)
+
 CI/CD: GitHub Actions, Terraform (Infrastructure as Code)
+
 Testing: Jest (unit), Pact (contract), Playwright (UI flows), k6 (load & apply-phase)
 
 
