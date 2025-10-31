@@ -174,36 +174,52 @@ Together, these classes form a clear, modular system that separates decision-mak
 
 ## 4. List of Classes
 The following classes define the core entities, logic components, and service interfaces that support automated workspace structure generation. Each class has a specific, clearly scoped purpose within the overall workflow.
+
 StructureJob
 Serves as the persistent record for each workflow run. It tracks job status, ownership, and timestamps from creation through completion, enabling full process traceability.
+
 StructureProposal
 Contains the versioned AI-generated proposal for workspace structure creation. Includes rationale, quality score, and the list of associated blueprints to be applied.
+
 Blueprint
 Defines the declarative instructions for Slack resources such as channels and user groups. Each blueprint specifies configuration details, dependencies, and operations to be executed in sequence.
+
 Policy
 Stores all workspace-specific naming, privacy, and retention rules enforced by the Validator. Provides a flexible framework for standardizing configurations across different teams.
+
 ContextPackage
 Combines user-provided intake data with harvested workspace metadata, forming a single, contextualized input for the AI generation process.
+
 IntakeForm
 Captures key project details supplied by the team, including goals, constraints, timeline, and department context. This ensures the AI output reflects user intent and scope.
+
 SlackContext
 Represents a current snapshot of the workspace, including users, existing channels, user groups, and engagement metrics. Enables informed and relevant proposal generation.
+
 ApplyResult
 Records the outcomes of the apply phase, listing all newly created Slack entities—such as channels and user groups—along with their identifiers for audit purposes.
+
 ValidationResult / Issue
 Summarizes the results of policy enforcement and proposal validation. Each issue entry includes a code, message, and severity to guide revisions and ensure compliance.
+
 JobService
 Acts as the orchestrator of the workflow. It manages job lifecycle transitions, builds prompts, and connects all system components from generation to validation and apply.
+
 Generator
 Uses the LLM and heuristic logic to create the proposed workspace structure. Focuses on clarity, organization, and adherence to best-practice communication design.
+
 Validator
 Enforces workspace policies, detects duplicates or violations, and computes a composite quality score. Supports both automated checks and manual approval workflows.
+
 ApplyService
 Executes approved changes safely within Slack. Handles retries, batching, and rollback for reliability and user confidence during deployment.
+
 SlackGateway
 Provides a secure, modular interface for interacting with Slack’s API. Abstracts operations such as creating channels, setting topics, and managing user groups.
+
 Blocks
 Represents reusable Slack UI elements (Block Kit components) used to build modals, dashboards, and review views within the Slack client interface.
+
 Prompt
 Defines the structured instruction templates and contextual parameters sent to the LLM. Every prompt is stored for auditability, reproducibility, and model-tuning analysis.
 
