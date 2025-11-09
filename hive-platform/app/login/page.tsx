@@ -116,7 +116,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo: Use any email and password to sign in
+          Demo: demo@example.com / demo123 or user@example.com / user123
         </p>
       </motion.div>
     </div>

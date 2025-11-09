@@ -309,7 +309,7 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                       />
                     </div>
                     <Select value={selectedSource} onValueChange={setSelectedSource}>
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-40" aria-label="Source">
                         <SelectValue placeholder="Source" />
                       </SelectTrigger>
                       <SelectContent>
@@ -320,7 +320,7 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                       </SelectContent>
                     </Select>
                     <Select value={selectedChannel} onValueChange={setSelectedChannel}>
-                      <SelectTrigger className="w-48">
+                      <SelectTrigger className="w-48" aria-label="Channel/Subgroup">
                         <SelectValue placeholder="Channel/Subgroup" />
                       </SelectTrigger>
                       <SelectContent>

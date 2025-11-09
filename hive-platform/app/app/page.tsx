@@ -14,6 +14,7 @@ import { ChangeSetPreview } from "@/components/features/wizard/ChangeSetPreview"
 import { HubDashboard } from "@/components/features/file-hub/HubDashboard";
 import { OrganizationProvider, useOrganization } from "@/contexts/OrganizationContext";
 import { OrganizationWizard } from "@/components/features/org/OrganizationWizard";
+import { useChannel } from "@/lib/hooks/useChannels";
 import type { Organization } from "@/types/organization";
 
 type AppView = 'chat' | 'wizard' | 'recommendation' | 'changeset' | 'hub' | 'org-wizard';
@@ -28,6 +29,8 @@ function AppContent() {
   const { currentOrg, approveBlueprint, createOrganization } = useOrganization();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orgWizardOpen, setOrgWizardOpen] = useState(false);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const { data: selectedChannel } = useChannel(selectedChannelId);
   const [appState, setAppState] = useState<AppState>({
     currentView: 'chat',
     wizardData: null,
@@ -121,9 +124,12 @@ function AppContent() {
       default:
         return (
           <>
-            <ChannelHeader />
-            <MessagePane />
-            <MessageInput />
+            <ChannelHeader channel={selectedChannel} />
+            <MessagePane channelId={selectedChannelId} />
+            <MessageInput
+              channelId={selectedChannelId}
+              channelName={selectedChannel?.name}
+            />
           </>
         );
     }
@@ -148,6 +154,8 @@ function AppContent() {
           onOpenHub={handleOpenHub}
           onOpenWizard={handleOpenWizard}
           onCreateOrg={handleCreateOrg}
+          onChannelSelect={setSelectedChannelId}
+          selectedChannelId={selectedChannelId}
           currentView={appState.currentView}
         />
       </div>
