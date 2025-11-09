@@ -21,7 +21,7 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
     );
   }
 
-  const isDM = channel.type === 'DM';
+  const isDM = channel.type === 'dm';
   const Icon = isDM ? MessageCircle : Hash;
 
   return (

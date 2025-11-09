@@ -1,0 +1,41 @@
+
+> hive-platform@0.1.0 test
+> jest tests/components/features/wizard/CommunityWizard.test.tsx --no-coverage
+
+PASS tests/components/features/wizard/CommunityWizard.test.tsx
+  CommunityWizard
+    Initial State
+      ✓ renders initial state with Step 1 visible, progress at ~33%, and primary button disabled (48 ms)
+    handleActivityChange
+      ✓ adds activity when checked (9 ms)
+      ✓ removes activity when unchecked (9 ms)
+    canContinue
+      ✓ blocks when required inputs are missing (no size, no moderation, no activities) (8 ms)
+      ✓ allows when required inputs are set (size=25-100, moderation=medium, 1 activity) (12 ms)
+    handleContinue
+      ✓ advances steps when Continue is clicked on valid Step 1 (14 ms)
+    communitySizeSelect_onValueChange
+      ✓ updates size when "100-300" is selected (17 ms)
+    moderationSelect_onValueChange
+      ✓ updates moderation when "high" is selected (15 ms)
+    channelBudgetSlider_onValueChange
+      ✓ updates budget when moved to 12 and label shows 12 (18 ms)
+    providerBadge_onClick
+      ✓ sets import provider when importWorkspace is true and Slack badge is clicked (17 ms)
+    cancelButton_onClick
+      ✓ calls onCancel once when Cancel button is clicked (6 ms)
+    backButton_onClick
+      ✓ decrements currentStep when Back button is clicked from Step 2 (16 ms)
+    primaryButton_onClick
+      ✓ calls onComplete with current state snapshot when Generate is clicked on Step 3 (22 ms)
+    Edge Cases
+      ✓ does not show Back button on Step 1 (5 ms)
+      ✓ shows provider badges only when importWorkspace is checked (14 ms)
+      ✓ displays all selected activities on Step 3 review (18 ms)
+      ✓ renders in embedded mode when embedded prop is true (4 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        0.719 s, estimated 1 s
+Ran all test suites matching tests/components/features/wizard/CommunityWizard.test.tsx.

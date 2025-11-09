@@ -27,10 +27,10 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
 
   // Categorize channels by type
   const categorizedChannels = useMemo(() => {
-    const core = channels.filter(ch => ch.type === 'CORE');
-    const workstreams = channels.filter(ch => ch.type === 'WORKSTREAM');
-    const committees = channels.filter(ch => ch.type === 'COMMITTEE');
-    const dms = channels.filter(ch => ch.type === 'DM');
+    const core = channels.filter(ch => ch.type === 'core');
+    const workstreams = channels.filter(ch => ch.type === 'workstream');
+    const committees = channels.filter(ch => ch.type === 'committee');
+    const dms = channels.filter(ch => ch.type === 'dm');
 
     return { core, workstreams, committees, dms };
   }, [channels]);

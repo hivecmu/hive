@@ -129,7 +129,7 @@ export async function structureRoutes(fastify: FastifyInstance) {
       }
 
       // Apply proposal
-      const applyResult = await structureService.applyProposal(jobId, job.workspaceId);
+      const applyResult = await structureService.applyProposal(jobId, job.workspaceId, userId);
 
       if (!applyResult.ok) {
         return reply.code(500).send(applyResult);

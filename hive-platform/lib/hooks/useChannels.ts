@@ -6,7 +6,7 @@ export interface Channel {
   id: string;
   name: string;
   description?: string;
-  type: 'CORE' | 'WORKSTREAM' | 'COMMITTEE' | 'DM';
+  type: 'core' | 'workstream' | 'committee' | 'dm';
   workspaceId: string;
   createdAt: string;
   updatedAt: string;

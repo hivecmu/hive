@@ -1,0 +1,42 @@
+
+> hive-backend@1.0.0 test
+> jest tests/domains/filehub/FileHubService.test.ts --no-coverage
+
+PASS tests/domains/filehub/FileHubService.test.ts
+  FileHubService
+    createJob
+      ✓ should create file job with status="created" (1 ms)
+      ✓ should return error on DB failure
+    addFile
+      ✓ should insert file with content hash when content provided (1 ms)
+      ✓ should detect duplicate hash and log it as non-blocking
+      ✓ should insert file without content hash when no content provided
+      ✓ should return error on DB failure (1 ms)
+    tagFile
+      ✓ should persist AI tags when file exists and AI returns Ok (1 ms)
+      ✓ should return notFound error when file does not exist
+      ✓ should passthrough AI error when AI service fails
+    indexFile
+      ✓ should upsert vector and mark file as indexed
+      ✓ should return notFound error when file does not exist
+      ✓ should passthrough AI error when embeddings fail
+    search
+      ✓ should apply filters and limit correctly
+      ✓ should return empty array when no matches found
+      ✓ should return error on DB failure
+      ✓ should use default limit of 50 when not specified
+    getJob
+      ✓ should return job when it exists
+      ✓ should return notFound error when job does not exist
+    rowToJob
+      ✓ should map DB row to FileJob with snake_case converted to camelCase (2 ms)
+      ✓ should handle null stats
+    rowToFile
+      ✓ should map DB row to FileRecord with default empty tags array
+      ✓ should preserve tags array when present
+
+Test Suites: 1 passed, 1 total
+Tests:       22 passed, 22 total
+Snapshots:   0 total
+Time:        1.049 s, estimated 3 s
+Ran all test suites matching /tests\/domains\/filehub\/FileHubService.test.ts/i.

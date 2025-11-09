@@ -229,6 +229,43 @@ async function seedChannels(db: Pool, workspaceId: string, creatorUserId: string
   return channelIds;
 }
 
+async function seedChannelMembers(db: Pool, channelIds: string[], userIds: string[]) {
+  logger.info('Seeding channel members...');
+
+  let totalMemberships = 0;
+
+  for (const channelId of channelIds) {
+    // Add all users to all channels (since they're all public)
+    for (const userId of userIds) {
+      try {
+        // Check if membership already exists
+        const existing = await db.query(
+          'SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2',
+          [channelId, userId]
+        );
+
+        if (existing.rows.length > 0) {
+          continue;
+        }
+
+        // Add user to channel
+        await db.query(
+          `INSERT INTO channel_members (channel_id, user_id)
+           VALUES ($1, $2)`,
+          [channelId, userId]
+        );
+
+        totalMemberships++;
+      } catch (error) {
+        logger.error(`Failed to add user ${userId} to channel ${channelId}:`, error);
+        throw error;
+      }
+    }
+  }
+
+  logger.info(`Created ${totalMemberships} channel memberships`);
+}
+
 async function seedMessages(db: Pool, channelIds: string[], userIds: string[]) {
   logger.info('Seeding messages...');
 
@@ -490,6 +527,9 @@ async function main() {
 
     // Seed channels and get channel IDs
     const channelIds = await seedChannels(db, workspaceId, userIds[0]);
+
+    // Seed channel members (add users to channels)
+    await seedChannelMembers(db, channelIds, userIds);
 
     // Seed messages in channels
     await seedMessages(db, channelIds, userIds);

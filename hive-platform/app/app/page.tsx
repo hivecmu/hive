@@ -16,6 +16,7 @@ import { OrganizationProvider, useOrganization } from "@/contexts/OrganizationCo
 import { OrganizationWizard } from "@/components/features/org/OrganizationWizard";
 import { useChannel } from "@/lib/hooks/useChannels";
 import type { Organization } from "@/types/organization";
+import { api } from "@/lib/api/client";
 
 type AppView = 'chat' | 'wizard' | 'recommendation' | 'changeset' | 'hub' | 'org-wizard';
 
@@ -23,6 +24,7 @@ interface AppState {
   currentView: AppView;
   wizardData: any;
   recommendationData: any;
+  jobId: string | null;
 }
 
 function AppContent() {
@@ -35,21 +37,54 @@ function AppContent() {
     currentView: 'chat',
     wizardData: null,
     recommendationData: null,
+    jobId: null,
   });
 
-  const handleWizardComplete = (data: any) => {
-    setAppState(prev => ({
-      ...prev,
-      currentView: 'recommendation',
-      wizardData: data,
-      recommendationData: {
-        channels: 9,
-        subgroups: 3,
-        archiveCandidates: 2,
-        channelBudgetUsed: 9,
-        channelBudgetMax: 10,
+  const handleWizardComplete = async (data: any) => {
+    if (!currentOrg) {
+      toast.error("No workspace selected");
+      return;
+    }
+
+    try {
+      // Call backend API to generate structure proposal
+      toast.info("Generating AI recommendations...");
+      const result = await api.structure.generate({
+        workspaceId: currentOrg.id,
+        communitySize: data.communitySize,
+        coreActivities: data.coreActivities,
+        moderationCapacity: data.moderationCapacity,
+        channelBudget: data.channelBudget[0],
+        additionalContext: data.additionalContext,
+      });
+
+      if (!result.ok) {
+        toast.error(result.issues[0]?.message || "Failed to generate recommendations");
+        return;
       }
-    }));
+
+      const proposal = result.value.proposal.proposal;
+
+      // Show recommendation view with actual AI-generated data
+      setAppState(prev => ({
+        ...prev,
+        currentView: 'recommendation',
+        wizardData: data,
+        jobId: result.value.job.jobId,
+        recommendationData: {
+          channels: proposal.channels.length,
+          subgroups: proposal.committees.length,
+          archiveCandidates: 0,
+          channelBudgetUsed: proposal.channels.length,
+          channelBudgetMax: data.channelBudget[0],
+        }
+      }));
+
+      toast.success("AI recommendations generated!");
+    } catch (error) {
+      console.error("Failed to generate recommendations:", error);
+      toast.error("Failed to generate recommendations");
+    }
   };
 
   const handleApproveBlueprint = () => {
@@ -59,15 +94,39 @@ function AppContent() {
     }));
   };
 
-  const handleFinalApproval = () => {
-    if (currentOrg) {
-      // Approve blueprint for current organization
-      approveBlueprint(currentOrg.id, appState.recommendationData);
+  const handleFinalApproval = async () => {
+    if (!currentOrg || !appState.jobId) {
+      toast.error("Missing workspace or job information");
+      return;
     }
-    setAppState(prev => ({
-      ...prev,
-      currentView: 'chat',
-    }));
+
+    try {
+      // Call backend API to approve and apply the proposal
+      toast.info("Creating channels in database...");
+      const result = await api.structure.approve(appState.jobId);
+
+      if (!result.ok) {
+        toast.error(result.issues[0]?.message || "Failed to create channels");
+        return;
+      }
+
+      // Update local state
+      approveBlueprint(currentOrg.id, appState.recommendationData);
+
+      toast.success(`Successfully created ${result.value.channelsCreated} channels!`);
+
+      // Return to chat view
+      setAppState(prev => ({
+        ...prev,
+        currentView: 'chat',
+        wizardData: null,
+        recommendationData: null,
+        jobId: null,
+      }));
+    } catch (error) {
+      console.error("Failed to approve proposal:", error);
+      toast.error("Failed to create channels");
+    }
   };
 
   const handleOpenHub = () => {

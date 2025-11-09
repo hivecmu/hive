@@ -50,7 +50,8 @@ export async function messagingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await channelService.listByWorkspace(workspaceId);
+      // List channels that the user is a member of
+      const result = await channelService.listByUserInWorkspace(workspaceId, userId);
 
       if (!result.ok) {
         return reply.code(500).send(result);
