@@ -31,6 +31,8 @@ export interface CreateChannelInput {
 export class ChannelService {
   /**
    * Create a new channel
+   * Note: The database trigger auto_add_members_to_public_channel will automatically
+   * add all workspace members to non-private channels
    */
   async create(input: CreateChannelInput): Promise<Result<Channel, Issue>> {
     try {
@@ -58,7 +60,14 @@ export class ChannelService {
         ]
       );
 
-      return Ok(this.rowToChannel(result.rows[0]));
+      const channel = this.rowToChannel(result.rows[0]);
+
+      // For private channels, manually add the creator
+      if (input.isPrivate) {
+        await this.addMember(channel.id, input.createdBy);
+      }
+
+      return Ok(channel);
     } catch (error) {
       return Err([Issues.internal('Failed to create channel')]);
     }
@@ -97,6 +106,30 @@ export class ChannelService {
       return Ok(channels);
     } catch (error) {
       return Err([Issues.internal('Failed to list channels')]);
+    }
+  }
+
+  /**
+   * List channels that a specific user is a member of
+   */
+  async listByUserInWorkspace(
+    workspaceId: UUID,
+    userId: UUID
+  ): Promise<Result<Channel[], Issue>> {
+    try {
+      const result = await db.query(
+        `SELECT c.*
+         FROM channels c
+         INNER JOIN channel_members cm ON c.id = cm.channel_id
+         WHERE c.workspace_id = $1 AND cm.user_id = $2
+         ORDER BY c.created_at ASC`,
+        [workspaceId, userId]
+      );
+
+      const channels = result.rows.map((row) => this.rowToChannel(row));
+      return Ok(channels);
+    } catch (error) {
+      return Err([Issues.internal('Failed to list user channels')]);
     }
   }
 
@@ -160,6 +193,44 @@ export class ChannelService {
       return Ok(undefined);
     } catch (error) {
       return Err([Issues.internal('Failed to delete channel')]);
+    }
+  }
+
+  /**
+   * Add a user to a channel
+   */
+  async addMember(channelId: UUID, userId: UUID): Promise<Result<void, Issue>> {
+    try {
+      await db.query(
+        `INSERT INTO channel_members (channel_id, user_id)
+         VALUES ($1, $2)
+         ON CONFLICT (channel_id, user_id) DO NOTHING`,
+        [channelId, userId]
+      );
+
+      return Ok(undefined);
+    } catch (error) {
+      return Err([Issues.internal('Failed to add member to channel')]);
+    }
+  }
+
+  /**
+   * Remove a user from a channel
+   */
+  async removeMember(channelId: UUID, userId: UUID): Promise<Result<void, Issue>> {
+    try {
+      const result = await db.query(
+        'DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2',
+        [channelId, userId]
+      );
+
+      if (result.rowCount === 0) {
+        return Err([Issues.notFound('Channel membership', channelId)]);
+      }
+
+      return Ok(undefined);
+    } catch (error) {
+      return Err([Issues.internal('Failed to remove member from channel')]);
     }
   }
 

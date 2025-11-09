@@ -1,0 +1,36 @@
+
+> hive-backend@1.0.0 test
+> jest tests/domains/structure/StructureService.test.ts --no-coverage
+
+PASS tests/domains/structure/StructureService.test.ts
+  StructureService
+    createJob
+      ✓ should persist job and intake form (2 ms)
+      ✓ should handle database failure (1 ms)
+    generateProposal
+      ✓ should save v1 proposal and set status to proposed (3 ms)
+      ✓ should return not found error for missing job (1 ms)
+      ✓ should mark job as failed when AI returns error
+    getJob
+      ✓ should return job for existing jobId (1 ms)
+      ✓ should return not found for missing jobId
+    getLatestProposal
+      ✓ should return highest version proposal (1 ms)
+      ✓ should return not found when no proposals exist
+    applyProposal
+      ✓ should create channels, committees, and blueprint with status applied
+      ✓ should be idempotent with existing channels (1 ms)
+      ✓ should fail when proposal is missing
+    updateJobStatus
+      ✓ should update job status
+    calculateScore
+      ✓ should score proposal within budget with core channels highly
+      ✓ should reduce score when over budget
+    rowToJob
+      ✓ should map snake_case DB row to camelCase StructureJob (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       16 passed, 16 total
+Snapshots:   0 total
+Time:        1.035 s
+Ran all test suites matching /tests\/domains\/structure\/StructureService.test.ts/i.

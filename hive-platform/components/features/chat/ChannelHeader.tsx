@@ -1,17 +1,41 @@
 import { Button } from "@/components/ui/button";
-import { Search, Users, Settings, Hash } from "lucide-react";
+import { Search, Users, Settings, Hash, MessageCircle } from "lucide-react";
+import type { Channel } from "@/lib/hooks/useChannels";
 
-export function ChannelHeader() {
+interface ChannelHeaderProps {
+  channel?: Channel | null;
+}
+
+export function ChannelHeader({ channel }: ChannelHeaderProps) {
+  if (!channel) {
+    return (
+      <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <Hash className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-card-foreground truncate">Select a channel</h1>
+            <p className="text-sm text-muted-foreground truncate hidden sm:block">Choose a channel from the sidebar to start messaging</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isDM = channel.type === 'dm';
+  const Icon = isDM ? MessageCircle : Hash;
+
   return (
     <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
-        <Hash className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
         <div className="min-w-0">
-          <h1 className="text-card-foreground truncate">general</h1>
-          <p className="text-sm text-muted-foreground truncate hidden sm:block">Team-wide announcements and work-based matters</p>
+          <h1 className="text-card-foreground truncate">{channel.name}</h1>
+          {channel.description && (
+            <p className="text-sm text-muted-foreground truncate hidden sm:block">{channel.description}</p>
+          )}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-1 sm:gap-2">
         <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-card-foreground hover:bg-accent">
           <Search className="h-4 w-4" />

@@ -50,7 +50,8 @@ export async function messagingRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await channelService.listByWorkspace(workspaceId);
+      // List channels that the user is a member of
+      const result = await channelService.listByUserInWorkspace(workspaceId, userId);
 
       if (!result.ok) {
         return reply.code(500).send(result);
@@ -132,11 +133,8 @@ export async function messagingRoutes(fastify: FastifyInstance) {
         return reply.code(500).send(result);
       }
 
-      // Broadcast to WebSocket clients
-      fastify.websocketServer.emit('message', {
-        channelId: id,
-        message: result.value,
-      });
+      // Broadcast to WebSocket clients in the channel room
+      fastify.websocketServer.to(`channel:${id}`).emit('message', result.value);
 
       return reply.code(201).send(Ok(result.value));
     }

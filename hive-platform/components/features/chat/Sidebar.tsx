@@ -8,6 +8,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Hash, Plus, MessageCircle, X, FolderOpen, Lock, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { OrganizationSwitcher } from "@/components/features/org/OrganizationSwitcher";
+import { useChannels } from "@/lib/hooks/useChannels";
+import { useMemo } from "react";
 
 interface SidebarProps {
   onClose?: () => void;
@@ -15,10 +17,23 @@ interface SidebarProps {
   onOpenWizard?: () => void;
   onCreateOrg?: () => void;
   currentView?: string;
+  selectedChannelId?: string | null;
+  onChannelSelect?: (channelId: string) => void;
 }
 
-export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, currentView }: SidebarProps) {
+export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, currentView, selectedChannelId, onChannelSelect }: SidebarProps) {
   const { currentOrg } = useOrganization();
+  const { data: channels = [], isLoading: isLoadingChannels } = useChannels(currentOrg?.id || null);
+
+  // Categorize channels by type
+  const categorizedChannels = useMemo(() => {
+    const core = channels.filter(ch => ch.type === 'core');
+    const workstreams = channels.filter(ch => ch.type === 'workstream');
+    const committees = channels.filter(ch => ch.type === 'committee');
+    const dms = channels.filter(ch => ch.type === 'dm');
+
+    return { core, workstreams, committees, dms };
+  }, [channels]);
 
   if (!currentOrg) {
     return (
@@ -66,47 +81,49 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
                 </Button>
               </div>
               <div className="space-y-1">
-                {workspace.coreChannels.map((channel) => (
-                  <div
-                    key={channel.id}
-                    className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
-                      channel.name === "general" && currentView === 'chat'
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`}
-                  >
-                    <Hash className="h-4 w-4" />
-                    <span className="flex-1">{channel.name}</span>
-                    {channel.unread > 0 && (
-                      <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                        {channel.unread}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {isLoadingChannels ? (
+                  <div className="px-2 py-1 text-sm text-muted-foreground">Loading...</div>
+                ) : categorizedChannels.core.length === 0 ? (
+                  <div className="px-2 py-1 text-sm text-muted-foreground">No channels yet</div>
+                ) : (
+                  categorizedChannels.core.map((channel) => (
+                    <div
+                      key={channel.id}
+                      onClick={() => onChannelSelect?.(channel.id)}
+                      className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
+                        selectedChannelId === channel.id && currentView === 'chat'
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <Hash className="h-4 w-4" />
+                      <span className="flex-1">{channel.name}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             {/* Workstreams Section (only after approval) */}
-            {blueprintApproved && workspace.workstreams.length > 0 && (
+            {blueprintApproved && categorizedChannels.workstreams.length > 0 && (
               <Collapsible defaultOpen>
                 <CollapsibleTrigger className="flex items-center justify-between w-full mb-2 text-muted-foreground text-sm uppercase tracking-wide hover:text-sidebar-foreground">
                   <span>Workstreams</span>
                   <ChevronDown className="h-4 w-4" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1">
-                  {workspace.workstreams.map((workstream) => (
+                  {categorizedChannels.workstreams.map((channel) => (
                     <div
-                      key={workstream.id}
-                      className="flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      key={channel.id}
+                      onClick={() => onChannelSelect?.(channel.id)}
+                      className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
+                        selectedChannelId === channel.id
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
                     >
                       <Hash className="h-4 w-4" />
-                      <span className="flex-1">{workstream.name}</span>
-                      {workstream.unread > 0 && (
-                        <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                          {workstream.unread}
-                        </span>
-                      )}
+                      <span className="flex-1">{channel.name}</span>
                     </div>
                   ))}
                 </CollapsibleContent>
@@ -114,38 +131,26 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
             )}
 
             {/* Committees Section (only after approval) */}
-            {blueprintApproved && workspace.committees.length > 0 && (
+            {blueprintApproved && categorizedChannels.committees.length > 0 && (
               <Collapsible defaultOpen>
                 <CollapsibleTrigger className="flex items-center justify-between w-full mb-2 text-muted-foreground text-sm uppercase tracking-wide hover:text-sidebar-foreground">
                   <span>Committees</span>
                   <ChevronDown className="h-4 w-4" />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-2">
-                  {workspace.committees.map((committee) => (
-                    <Collapsible key={committee.id}>
-                      <CollapsibleTrigger className="flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors w-full">
-                        <ChevronRight className="h-3 w-3" />
-                        <Users className="h-4 w-4" />
-                        <span className="flex-1 text-left">{committee.name}</span>
-                        <span className="text-xs text-muted-foreground">({committee.members})</span>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="ml-5 space-y-1 mt-1">
-                        {committee.channels.map((channel) => (
-                          <div
-                            key={channel.id}
-                            className="flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                          >
-                            <Hash className="h-4 w-4" />
-                            <span className="flex-1">{channel.name}</span>
-                            {channel.unread > 0 && (
-                              <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                                {channel.unread}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </CollapsibleContent>
-                    </Collapsible>
+                <CollapsibleContent className="space-y-1">
+                  {categorizedChannels.committees.map((channel) => (
+                    <div
+                      key={channel.id}
+                      onClick={() => onChannelSelect?.(channel.id)}
+                      className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
+                        selectedChannelId === channel.id
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <Hash className="h-4 w-4" />
+                      <span className="flex-1">{channel.name}</span>
+                    </div>
                   ))}
                 </CollapsibleContent>
               </Collapsible>
@@ -183,7 +188,7 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
             </div>
 
             {/* Direct Messages Section */}
-            {workspace.directMessages.length > 0 && (
+            {categorizedChannels.dms.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-muted-foreground text-sm uppercase tracking-wide">Direct messages</h3>
@@ -192,27 +197,18 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
                   </Button>
                 </div>
                 <div className="space-y-1">
-                  {workspace.directMessages.map((dm) => (
+                  {categorizedChannels.dms.map((channel) => (
                     <div
-                      key={dm.id}
-                      className="flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      key={channel.id}
+                      onClick={() => onChannelSelect?.(channel.id)}
+                      className={`flex items-center gap-2 px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
+                        selectedChannelId === channel.id
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      }`}
                     >
-                      <div className="relative">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                            {dm.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        {dm.online && (
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border border-sidebar rounded-full"></div>
-                        )}
-                      </div>
-                      <span className="flex-1">{dm.name}</span>
-                      {dm.unread > 0 && (
-                        <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                          {dm.unread}
-                        </span>
-                      )}
+                      <MessageCircle className="h-4 w-4" />
+                      <span className="flex-1">{channel.name}</span>
                     </div>
                   ))}
                 </div>

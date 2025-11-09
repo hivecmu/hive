@@ -251,7 +251,7 @@ export class StructureService {
   /**
    * Apply approved proposal (create actual channels)
    */
-  async applyProposal(jobId: UUID, workspaceId: UUID): Promise<Result<{ created: number }, Issue>> {
+  async applyProposal(jobId: UUID, workspaceId: UUID, userId: UUID): Promise<Result<{ created: number }, Issue>> {
     try {
       // Get latest proposal
       const proposalResult = await this.getLatestProposal(jobId);
@@ -277,9 +277,9 @@ export class StructureService {
 
           if (existing.rows.length === 0) {
             await client.query(
-              `INSERT INTO channels (workspace_id, name, description, type, is_private)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [workspaceId, channel.name, channel.description, channel.type, channel.isPrivate]
+              `INSERT INTO channels (workspace_id, name, description, type, is_private, created_by)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [workspaceId, channel.name, channel.description, channel.type, channel.isPrivate, userId]
             );
             createdCount++;
           }

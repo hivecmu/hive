@@ -10,6 +10,11 @@ export interface Message {
   threadId: UUID | null;
   editedAt: Date | null;
   createdAt: Date;
+  user?: {
+    id: UUID;
+    name: string;
+    email: string;
+  };
 }
 
 export interface SendMessageInput {
@@ -29,11 +34,27 @@ export class MessageService {
    */
   async send(input: SendMessageInput): Promise<Result<Message, Issue>> {
     try {
-      const result = await db.query(
+      // Insert the message
+      const insertResult = await db.query(
         `INSERT INTO messages (channel_id, user_id, content, thread_id)
          VALUES ($1, $2, $3, $4)
-         RETURNING *`,
+         RETURNING id`,
         [input.channelId, input.userId, input.content, input.threadId || null]
+      );
+
+      const messageId = insertResult.rows[0].id;
+
+      // Fetch the message with user info
+      const result = await db.query(
+        `SELECT
+           m.*,
+           u.id as user_id,
+           u.name as user_name,
+           u.email as user_email
+         FROM messages m
+         LEFT JOIN users u ON m.user_id = u.id
+         WHERE m.id = $1`,
+        [messageId]
       );
 
       return Ok(this.rowToMessage(result.rows[0]));
@@ -69,17 +90,23 @@ export class MessageService {
   ): Promise<Result<Message[], Issue>> {
     try {
       let query = `
-        SELECT * FROM messages
-        WHERE channel_id = $1 AND thread_id IS NULL
+        SELECT
+          m.*,
+          u.id as user_id,
+          u.name as user_name,
+          u.email as user_email
+        FROM messages m
+        LEFT JOIN users u ON m.user_id = u.id
+        WHERE m.channel_id = $1 AND m.thread_id IS NULL
       `;
       const params: any[] = [channelId];
 
       if (before) {
-        query += ` AND created_at < $2`;
+        query += ` AND m.created_at < $2`;
         params.push(before);
       }
 
-      query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+      query += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
       params.push(limit);
 
       const result = await db.query(query, params);
@@ -178,6 +205,11 @@ export class MessageService {
       threadId: row.thread_id,
       editedAt: row.edited_at ? new Date(row.edited_at) : null,
       createdAt: new Date(row.created_at),
+      user: row.user_name ? {
+        id: row.user_id,
+        name: row.user_name,
+        email: row.user_email,
+      } : undefined,
     };
   }
 }
