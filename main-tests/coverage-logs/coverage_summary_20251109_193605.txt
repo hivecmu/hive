@@ -1,0 +1,25 @@
+COVERAGE LOG SUMMARY
+====================
+Generated: Sun Nov  9 19:36:16 EST 2025
+
+Coverage Logs Created:
+---------------------
+  CommunityWizard.test_coverage_20251109_193431.log
+  FileHubService_coverage_20251109_193605.log
+  StructureService_coverage_20251109_193605.log
+  backend_full_coverage_20251109_193605.log
+  coverage-2025-11-10T00-33-23-223Z.log
+  coverage-2025-11-10T00-33-23-687Z.log
+  coverage-2025-11-10T00-33-23-752Z.log
+  coverage-2025-11-10T00-33-24-136Z.log
+  coverage-2025-11-10T00-33-24-391Z.log
+  coverage_main_20251109_193431.log
+  coverage_run_20251109_193322.log
+
+To view coverage logs:
+  cat coverage-logs/StructureService_coverage_20251109_193605.log
+  cat coverage-logs/FileHubService_coverage_20251109_193605.log
+  cat coverage-logs/backend_full_coverage_20251109_193605.log
+
+HTML Coverage Report:
+  open coverage/index.html

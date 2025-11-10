@@ -1,0 +1,40 @@
+
+> hive-platform@0.1.0 test
+> jest tests/components/features/file-hub/HubDashboard.test.tsx --no-coverage
+
+PASS tests/components/features/file-hub/HubDashboard.test.tsx
+  HubDashboard
+    getFileIcon
+      ✓ returns pdf icon variant (105 ms)
+    getStatusIcon
+      ✓ returns reauth icon (28 ms)
+    HubDashboard
+      ✓ renders overview tab by default (18 ms)
+    handleLinkSource
+      ✓ linking toasts sequence (24 ms)
+    filteredFiles_predicate
+      ✓ combined filters apply (204 ms)
+    searchInput_onChange
+      ✓ title filter (70 ms)
+    sourceSelect_onValueChange
+      ✓ source filter (43 ms)
+    channelSelect_onValueChange
+      ✓ channel filter (44 ms)
+    fileCard_onClick
+      ✓ opens drawer (39 ms)
+    closeDrawer_onClick
+      ✓ closes drawer (36 ms)
+    backToChat_onClick
+      ✓ calls onBack (5 ms)
+    hashDedupeSwitch_onCheckedChange
+      ✓ toggles dedupe flag (24 ms)
+    similaritySwitch_onCheckedChange
+      ✓ disabled control remains unchanged (17 ms)
+    viewRulesButton_onClick
+      ✓ safe no-op (25 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       14 passed, 14 total
+Snapshots:   0 total
+Time:        1.198 s
+Ran all test suites matching tests/components/features/file-hub/HubDashboard.test.tsx.

@@ -1,0 +1,1169 @@
+
+> hive-backend@1.0.0 test
+> jest --coverage --coverageReporters=text tests/domains/filehub/FileHubService.test.ts
+
+PASS tests/unit/shared/Result.test.ts
+PASS tests/unit/infra/db/client.test.ts
+PASS tests/unit/core/ai/AIService.test.ts
+PASS tests/domains/structure/StructureService.test.ts
+PASS tests/domains/filehub/FileHubService.test.ts
+FAIL tests/integration/migrations.test.ts
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should have pgvector extension installed
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should have uuid-ossp extension installed
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should create users table with correct columns
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should create workspaces table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should create channels table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 001: initial_schema › should create messages table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 002: structure_domain › should create structure_jobs table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 002: structure_domain › should create intake_forms table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 002: structure_domain › should create proposals table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 003: filehub_domain › should create file_jobs table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 003: filehub_domain › should create files table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 003: filehub_domain › should create file_index table with vector column
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 004: orchestrator_and_policy › should create workflow_ledger table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 004: orchestrator_and_policy › should create idempotency_keys table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 004: orchestrator_and_policy › should create policies table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Migration 004: orchestrator_and_policy › should create policy_rules table
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Indexes › should have created essential indexes
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Foreign Keys › should have foreign key from workspaces to users
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › Foreign Keys › should have foreign key from channels to workspaces
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › CRUD Operations › should insert and query a user
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+  ● Database Migrations (Integration) › CRUD Operations › should enforce unique constraint on email
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/migrations.test.ts:33:5)
+
+FAIL tests/integration/messaging.test.ts
+  ● Messaging (Integration) › GET /v1/workspaces/:workspaceId/channels › should list channels in workspace
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/messaging.test.ts:29:5)
+
+  ● Messaging (Integration) › GET /v1/channels/:id › should get channel by ID
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/messaging.test.ts:29:5)
+
+  ● Messaging (Integration) › POST /v1/channels/:id/messages › should send a message
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/messaging.test.ts:29:5)
+
+  ● Messaging (Integration) › POST /v1/channels/:id/messages › should reject empty messages
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/messaging.test.ts:29:5)
+
+  ● Messaging (Integration) › GET /v1/channels/:id/messages › should list messages in channel
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/messaging.test.ts:29:5)
+
+  ● Messaging (Integration) › GET /v1/channels/:id/messages › should list messages in channel
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      147 |       // Send a few messages
+      148 |       for (let i = 0; i < 3; i++) {
+    > 149 |         await app.inject({
+          |                   ^
+      150 |           method: 'POST',
+      151 |           url: `/v1/channels/${channelId}/messages`,
+      152 |           headers: { authorization: `Bearer ${authToken}` },
+
+      at Object.<anonymous> (tests/integration/messaging.test.ts:149:19)
+
+FAIL tests/integration/filehub.test.ts
+  ● File Hub (Integration) › POST /v1/workspaces/:workspaceId/files/sync › should create file sync job
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:30:5)
+
+  ● File Hub (Integration) › File tagging and indexing › should tag file with AI
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:30:5)
+
+  ● File Hub (Integration) › File tagging and indexing › should tag file with AI
+
+    error: relation "files" does not exist
+
+       97 |     const start = Date.now();
+       98 |     try {
+    >  99 |       const result = await this.pool.query<T>(text, params);
+          |                      ^
+      100 |       const duration = Date.now() - start;
+      101 |
+      102 |       logger.debug('Query executed', {
+
+      at node_modules/pg-pool/index.js:45:11
+      at DatabaseClient.query (src/infra/db/client.ts:99:22)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:102:26)
+
+  ● File Hub (Integration) › File tagging and indexing › should index file for search
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:30:5)
+
+  ● File Hub (Integration) › File tagging and indexing › should index file for search
+
+    error: relation "files" does not exist
+
+       97 |     const start = Date.now();
+       98 |     try {
+    >  99 |       const result = await this.pool.query<T>(text, params);
+          |                      ^
+      100 |       const duration = Date.now() - start;
+      101 |
+      102 |       logger.debug('Query executed', {
+
+      at node_modules/pg-pool/index.js:45:11
+      at DatabaseClient.query (src/infra/db/client.ts:99:22)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:102:26)
+
+  ● File Hub (Integration) › GET /v1/files/search › should search files by name
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:30:5)
+
+  ● File Hub (Integration) › GET /v1/files/search › should search files by name
+
+    error: relation "files" does not exist
+
+       97 |     const start = Date.now();
+       98 |     try {
+    >  99 |       const result = await this.pool.query<T>(text, params);
+          |                      ^
+      100 |       const duration = Date.now() - start;
+      101 |
+      102 |       logger.debug('Query executed', {
+
+      at node_modules/pg-pool/index.js:45:11
+      at DatabaseClient.query (src/infra/db/client.ts:99:22)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:155:7)
+
+  ● File Hub (Integration) › GET /v1/files/search › should filter by tags
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:30:5)
+
+  ● File Hub (Integration) › GET /v1/files/search › should filter by tags
+
+    error: relation "files" does not exist
+
+       97 |     const start = Date.now();
+       98 |     try {
+    >  99 |       const result = await this.pool.query<T>(text, params);
+          |                      ^
+      100 |       const duration = Date.now() - start;
+      101 |
+      102 |       logger.debug('Query executed', {
+
+      at node_modules/pg-pool/index.js:45:11
+      at DatabaseClient.query (src/infra/db/client.ts:99:22)
+      at Object.<anonymous> (tests/integration/filehub.test.ts:155:7)
+
+FAIL tests/integration/auth.test.ts
+  ● Authentication (Integration) › POST /auth/register › should register a new user
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/register › should reject duplicate email
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/register › should reject invalid email
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/register › should reject short password
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/login › should login with valid credentials
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/login › should reject invalid password
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › POST /auth/login › should reject non-existent email
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /auth/me › should return user with valid token
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /auth/me › should return user with valid token
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      187 |     beforeAll(async () => {
+      188 |       // Login to get a valid token
+    > 189 |       const response = await app.inject({
+          |                                  ^
+      190 |         method: 'POST',
+      191 |         url: '/auth/login',
+      192 |         payload: {
+
+      at Object.<anonymous> (tests/integration/auth.test.ts:189:34)
+
+  ● Authentication (Integration) › GET /auth/me › should reject missing token
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /auth/me › should reject missing token
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      187 |     beforeAll(async () => {
+      188 |       // Login to get a valid token
+    > 189 |       const response = await app.inject({
+          |                                  ^
+      190 |         method: 'POST',
+      191 |         url: '/auth/login',
+      192 |         payload: {
+
+      at Object.<anonymous> (tests/integration/auth.test.ts:189:34)
+
+  ● Authentication (Integration) › GET /auth/me › should reject invalid token
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /auth/me › should reject invalid token
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      187 |     beforeAll(async () => {
+      188 |       // Login to get a valid token
+    > 189 |       const response = await app.inject({
+          |                                  ^
+      190 |         method: 'POST',
+      191 |         url: '/auth/login',
+      192 |         payload: {
+
+      at Object.<anonymous> (tests/integration/auth.test.ts:189:34)
+
+  ● Authentication (Integration) › GET /auth/me › should reject malformed authorization header
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /auth/me › should reject malformed authorization header
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      187 |     beforeAll(async () => {
+      188 |       // Login to get a valid token
+    > 189 |       const response = await app.inject({
+          |                                  ^
+      190 |         method: 'POST',
+      191 |         url: '/auth/login',
+      192 |         payload: {
+
+      at Object.<anonymous> (tests/integration/auth.test.ts:189:34)
+
+  ● Authentication (Integration) › GET /health endpoints › should return ok status
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /health endpoints › should respond to liveness probe
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › GET /health endpoints › should respond to readiness probe
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+  ● Authentication (Integration) › 404 handling › should return 404 for unknown routes
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/auth.test.ts:36:5)
+
+FAIL tests/integration/structure.test.ts
+  ● Structure Generation (Integration) › POST /v1/structure/generate › should create job and generate proposal
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/structure.test.ts:31:5)
+
+  ● Structure Generation (Integration) › POST /v1/structure/generate › should reject if not workspace member
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/structure.test.ts:31:5)
+
+  ● Structure Generation (Integration) › GET /v1/structure/jobs/:jobId › should return job with proposal
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/structure.test.ts:31:5)
+
+  ● Structure Generation (Integration) › GET /v1/structure/jobs/:jobId › should return job with proposal
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      146 |     beforeAll(async () => {
+      147 |       // Create a job first
+    > 148 |       const response = await app.inject({
+          |                                  ^
+      149 |         method: 'POST',
+      150 |         url: '/v1/structure/generate',
+      151 |         headers: {
+
+      at Object.<anonymous> (tests/integration/structure.test.ts:148:34)
+
+  ● Structure Generation (Integration) › POST /v1/structure/proposals/:jobId/approve › should apply proposal and create channels
+
+    error: could not open extension control file "/usr/local/share/postgresql/extension/vector.control": No such file or directory
+
+      74 |     await db.transaction(async (client) => {
+      75 |       // Run migration SQL
+    > 76 |       await client.query(migration.sql);
+         |       ^
+      77 |
+      78 |       // Record migration
+      79 |       await client.query(
+
+      at node_modules/pg/lib/client.js:545:17
+      at src/infra/db/migrate.ts:76:7
+      at DatabaseClient.transaction (src/infra/db/client.ts:135:22)
+      at runMigrations (src/infra/db/migrate.ts:74:5)
+      at Object.<anonymous> (tests/integration/structure.test.ts:31:5)
+
+  ● Structure Generation (Integration) › POST /v1/structure/proposals/:jobId/approve › should apply proposal and create channels
+
+    TypeError: Cannot read properties of undefined (reading 'inject')
+
+      188 |     beforeAll(async () => {
+      189 |       // Create a job
+    > 190 |       const response = await app.inject({
+          |                                  ^
+      191 |         method: 'POST',
+      192 |         url: '/v1/structure/generate',
+      193 |         headers: {
+
+      at Object.<anonymous> (tests/integration/structure.test.ts:190:34)
+
+--------------------------|---------|----------|---------|---------|------------------------------
+File                      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s            
+--------------------------|---------|----------|---------|---------|------------------------------
+All files                 |      41 |    24.56 |   35.95 |   41.01 |                              
+ src                      |   43.75 |      100 |       0 |   43.75 |                              
+  app.ts                  |   43.75 |      100 |       0 |   43.75 | 19-80                        
+ src/core/ai              |   38.37 |    18.75 |   66.66 |   38.09 |                              
+  AIService.ts            |   41.26 |     37.5 |     100 |   40.32 | 34-80,96-141,156-174         
+  SchemaEnforcer.ts       |   30.43 |        0 |       0 |   31.81 | 32-96                        
+ src/core/ai/prompts      |   66.66 |        0 |       0 |   66.66 |                              
+  file-tagging.ts         |   66.66 |        0 |       0 |   66.66 | 23                           
+  structure-generation.ts |   66.66 |        0 |       0 |   66.66 | 33                           
+ src/core/ai/providers    |   19.64 |        0 |   28.57 |      20 |                              
+  OpenAIProvider.ts       |   19.64 |        0 |   28.57 |      20 | 54,72-219,227-228            
+ src/domains/filehub      |   94.44 |    96.42 |     100 |   94.38 |                              
+  FileHubService.ts       |   94.44 |    96.42 |     100 |   94.38 | 192-193,240-241,315          
+ src/domains/messaging    |    6.55 |        0 |       0 |    6.77 |                              
+  ChannelService.ts       |    5.88 |        0 |       0 |    6.06 | 38-241                       
+  MessageService.ts       |     7.4 |        0 |       0 |    7.69 | 36-200                       
+ src/domains/structure    |   90.32 |    93.33 |     100 |      90 |                              
+  StructureService.ts     |   90.32 |    93.33 |     100 |      90 | 194-196,216,247,327-329,343  
+ src/domains/users        |   19.04 |        0 |       0 |   19.04 |                              
+  UserService.ts          |   19.04 |        0 |       0 |   19.04 | 70-183                       
+ src/domains/workspace    |    5.06 |        0 |       0 |    5.12 |                              
+  WorkspaceService.ts     |    5.06 |        0 |       0 |    5.12 | 62-288                       
+ src/http                 |   17.94 |        0 |       0 |   17.94 |                              
+  websocket.ts            |   17.94 |        0 |       0 |   17.94 | 19-97,104,111                
+ src/http/middleware      |   18.75 |        0 |       0 |   19.04 |                              
+  auth.ts                 |   18.51 |        0 |       0 |   18.51 | 33-74,89-98                  
+  error-handler.ts        |   18.18 |        0 |       0 |   19.04 | 14-77                        
+  validation.ts           |      20 |      100 |       0 |      20 | 9-15,24-28,37-41             
+ src/http/routes          |   19.16 |        0 |       0 |   19.16 |                              
+  auth.ts                 |   27.27 |        0 |       0 |   27.27 | 16-71                        
+  filehub.ts              |   20.93 |        0 |       0 |   20.93 | 29-139                       
+  health.ts               |      25 |        0 |       0 |      25 | 14-56                        
+  messaging.ts            |   19.04 |        0 |       0 |   19.04 | 35-188                       
+  structure.ts            |   20.93 |        0 |       0 |   20.93 | 30-138                       
+  workspaces.ts           |   11.32 |        0 |       0 |   11.32 | 16-157                       
+ src/http/schemas         |     100 |      100 |     100 |     100 |                              
+  auth.ts                 |     100 |      100 |     100 |     100 |                              
+  workspace.ts            |     100 |      100 |     100 |     100 |                              
+ src/infra/db             |    71.2 |    33.33 |   65.21 |   71.54 |                              
+  client.ts               |   82.35 |       50 |   77.77 |   82.35 | 61-62,67,128,150-156,187-191 
+  migrate.ts              |   57.89 |        0 |   57.14 |   58.18 | 44,67-68,79-88,92-93,98-120  
+ src/shared/types         |     100 |    94.11 |     100 |     100 |                              
+  Result.ts               |     100 |    94.11 |     100 |     100 | 171                          
+ src/shared/utils         |   66.66 |    33.33 |       0 |   66.66 |                              
+  logger.ts               |   66.66 |    33.33 |       0 |   66.66 | 24-25,39                     
+--------------------------|---------|----------|---------|---------|------------------------------
+
+        Failed to write coverage reports:
+        ERROR: Error: Cannot find module 'tests/domains/filehub/FileHubService.test.ts'
+Require stack:
+- /Users/akeilsmith/hive-2/backend/node_modules/istanbul-reports/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/CoverageReporter.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/core/build/TestScheduler.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/core/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/build/run.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/bin/jest.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest/bin/jest.js
+        STACK: Error: Cannot find module 'tests/domains/filehub/FileHubService.test.ts'
+Require stack:
+- /Users/akeilsmith/hive-2/backend/node_modules/istanbul-reports/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/CoverageReporter.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/core/build/TestScheduler.js
+- /Users/akeilsmith/hive-2/backend/node_modules/@jest/core/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/build/run.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/build/index.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest-cli/bin/jest.js
+- /Users/akeilsmith/hive-2/backend/node_modules/jest/bin/jest.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.create (/Users/akeilsmith/hive-2/backend/node_modules/istanbul-reports/index.js:19:20)
+    at /Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/CoverageReporter.js:184:20
+    at Array.forEach (<anonymous>)
+    at CoverageReporter.onRunComplete (/Users/akeilsmith/hive-2/backend/node_modules/@jest/reporters/build/CoverageReporter.js:178:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ReporterDispatcher.onRunComplete (/Users/akeilsmith/hive-2/backend/node_modules/@jest/core/build/ReporterDispatcher.js:71:9)
+      
+Jest: "global" coverage threshold for statements (70%) not met: 41%
+Jest: "global" coverage threshold for branches (70%) not met: 24.56%
+Jest: "global" coverage threshold for lines (70%) not met: 41.01%
+Jest: "global" coverage threshold for functions (70%) not met: 35.95%
+Test Suites: 5 failed, 5 passed, 10 total
+Tests:       50 failed, 91 passed, 141 total
+Snapshots:   0 total
+Time:        3.348 s, estimated 4 s
+Ran all test suites.

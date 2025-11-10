@@ -1,0 +1,20 @@
+COVERAGE TEST RUN SUMMARY
+========================
+Date: Sun Nov  9 19:33:25 EST 2025
+Test Exit Code: 1
+
+
+Test Files:
+-----------
+  - CommunityWizard.test.tsx
+  - FileHubService.test.ts
+  - HubDashboard.test.tsx
+  - StructureService.coverage.test.ts
+  - StructureService.test.ts
+
+Coverage Reports Generated:
+--------------------------
+  - HTML Report: coverage/index.html
+  - LCOV Report: coverage/lcov.info
+  - JSON Report: coverage/coverage-final.json
+  - Main Report: COVERAGE_REPORT.md

@@ -1,0 +1,13 @@
+Coverage Test Run Started: Sun Nov  9 19:34:32 EST 2025
+
+----------------------------------------
+Testing: CommunityWizard.test.tsx
+----------------------------------------
+Running frontend test: CommunityWizard.test.tsx
+✅ Test passed: CommunityWizard.test.tsx
+========================================
+     COVERAGE TEST RUN COMPLETE
+========================================
+
+Summary saved to: coverage-logs/coverage_summary_20251109_193431.txt
+Coverage logs directory: coverage-logs/

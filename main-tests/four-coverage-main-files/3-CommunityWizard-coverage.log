@@ -1,0 +1,67 @@
+
+> hive-platform@0.1.0 test
+> jest --coverage --coverageReporters=text components/features/wizard/CommunityWizard.test.tsx
+
+PASS tests/components/features/file-hub/HubDashboard.test.tsx
+PASS tests/components/features/wizard/CommunityWizard.test.tsx
+------------------------------|---------|----------|---------|---------|-------------------
+File                          | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+------------------------------|---------|----------|---------|---------|-------------------
+All files                     |   91.95 |    90.27 |   87.01 |   92.99 |                   
+ components/features/file-hub |   92.98 |       90 |   83.33 |   92.45 |                   
+  HubDashboard.tsx            |   92.98 |       90 |   83.33 |   92.45 | 233-238,519       
+ components/features/wizard   |     100 |    93.75 |   95.65 |     100 |                   
+  CommunityWizard.tsx         |     100 |    93.75 |   95.65 |     100 | 163,218           
+ components/ui                |   84.84 |       85 |   82.75 |   88.33 |                   
+  badge.tsx                   |    87.5 |    66.66 |     100 |     100 | 35                
+  button.tsx                  |    87.5 |    66.66 |     100 |     100 | 49                
+  card.tsx                    |   77.77 |      100 |   71.42 |   77.77 | 87,89             
+  input.tsx                   |     100 |      100 |     100 |     100 |                   
+  label.tsx                   |     100 |      100 |     100 |     100 |                   
+  scroll-area.tsx             |      80 |       80 |     100 |     100 | 44                
+  select.tsx                  |   64.28 |      100 |      70 |   64.28 | 179,181-184       
+  separator.tsx               |     100 |      100 |     100 |     100 |                   
+  switch.tsx                  |     100 |      100 |     100 |     100 |                   
+  tabs.tsx                    |     100 |      100 |     100 |     100 |                   
+ lib                          |     100 |      100 |     100 |     100 |                   
+  utils.ts                    |     100 |      100 |     100 |     100 |                   
+------------------------------|---------|----------|---------|---------|-------------------
+
+        Failed to write coverage reports:
+        ERROR: Error: Cannot find module 'components/features/wizard/CommunityWizard.test.tsx'
+Require stack:
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/istanbul-reports/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/reporters/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest-cli/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest-cli/bin/jest.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest/bin/jest.js
+        STACK: Error: Cannot find module 'components/features/wizard/CommunityWizard.test.tsx'
+Require stack:
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/istanbul-reports/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/reporters/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest-cli/build/index.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest-cli/bin/jest.js
+- /Users/akeilsmith/hive-2/hive-platform/node_modules/jest/bin/jest.js
+    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at call (/Users/akeilsmith/hive-2/hive-platform/node_modules/next/src/server/require-hook.ts:54:34)
+    at Function.Module._load (node:internal/modules/cjs/loader:1043:27)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at Module.call [as require] (/Users/akeilsmith/hive-2/hive-platform/node_modules/next/src/server/require-hook.ts:74:26)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.create (/Users/akeilsmith/hive-2/hive-platform/node_modules/istanbul-reports/index.js:19:20)
+    at CoverageReporter.onRunComplete (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/reporters/build/index.js:229:36)
+    at ReporterDispatcher.onRunComplete (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js:317:9)
+    at TestScheduler.scheduleTests (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js:1159:5)
+    at runJest (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js:3457:19)
+    at _run10000 (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js:1543:5)
+    at runCLI (/Users/akeilsmith/hive-2/hive-platform/node_modules/@jest/core/build/index.js:1444:3)
+    at Object.run (/Users/akeilsmith/hive-2/hive-platform/node_modules/jest-cli/build/index.js:656:9)
+      
+
+Test Suites: 2 passed, 2 total
+Tests:       31 passed, 31 total
+Snapshots:   0 total
+Time:        2.009 s
+Ran all test suites.
