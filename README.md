@@ -87,3 +87,72 @@ npm run lint         # Run ESLint
 ## License
 
 MIT
+
+## Testing Instructions
+
+This document provides instructions for running frontend and backend tests.
+
+### Frontend Testing
+
+The frontend tests are built using **Jest** and **React Testing Library**.
+
+**Prerequisites:**
+
+- Node.js 18 or higher
+- npm or yarn
+
+**Running Frontend Tests:**
+
+1.  Navigate to the `hive-platform` directory:
+    ```bash
+    cd hive-platform
+    ```
+2.  Install dependencies (if you haven't already):
+    ```bash
+    npm install
+    ```
+3.  Run all tests:
+    ```bash
+    npm test
+    ```
+4.  To run tests in watch mode (reruns tests on file changes):
+    ```bash
+    npm run test:watch
+    ```
+
+### Backend Testing
+
+The backend tests are built using **Jest** and **Supertest** for integration tests.
+
+**Prerequisites:**
+
+- Node.js 20 or higher
+- npm or yarn
+- A running PostgreSQL database (or SQLite for development/testing, if configured)
+
+**Running Backend Tests:**
+
+1.  Navigate to the `backend` directory:
+    ```bash
+    cd backend
+    ```
+2.  Install dependencies (if you haven't already):
+    ```bash
+    npm install
+    ```
+3.  Run all tests:
+    ```bash
+    npm test
+    ```
+4.  Run unit and domain-specific tests:
+    ```bash
+    npm run test:unit
+    ```
+5.  Run integration tests:
+    ```bash
+    npm run test:integration
+    ```
+6.  Run end-to-end tests:
+    ```bash
+    npm run test:e2e
+    ```
