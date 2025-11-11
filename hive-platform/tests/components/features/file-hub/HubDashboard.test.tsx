@@ -159,17 +159,15 @@ describe('HubDashboard', () => {
 
       // Apply source filter for "Google Drive"
       const sourceSelect = screen.getByRole('combobox', { name: /source/i });
-      fireEvent.pointerDown(sourceSelect);
-      fireEvent.click(sourceSelect);
+      await user.click(sourceSelect);
       const googleDriveOption = await screen.findByRole('option', { name: /^Google Drive$/i });
-      fireEvent.click(googleDriveOption);
+      await user.click(googleDriveOption);
 
       // Apply channel filter for "committees"
       const channelSelect = screen.getByRole('combobox', { name: /channel\/subgroup/i });
-      fireEvent.pointerDown(channelSelect);
-      fireEvent.click(channelSelect);
+      await user.click(channelSelect);
       const committeesOption = await screen.findByRole('option', { name: /committees/i });
-      fireEvent.click(committeesOption);
+      await user.click(committeesOption);
 
       // Verify only matching file is visible
       // "Design System Components.sketch" matches all criteria:
@@ -230,10 +228,9 @@ describe('HubDashboard', () => {
 
       // Select Google Drive from source filter
       const sourceSelect = screen.getByRole('combobox', { name: /source/i });
-      fireEvent.pointerDown(sourceSelect);
-      fireEvent.click(sourceSelect);
+      await user.click(sourceSelect);
       const googleDriveOption = await screen.findByRole('option', { name: /^Google Drive$/i });
-      fireEvent.click(googleDriveOption);
+      await user.click(googleDriveOption);
 
       // Verify only Google Drive files are visible
       await waitFor(() => {
@@ -263,10 +260,9 @@ describe('HubDashboard', () => {
 
       // Select "committees" from channel filter
       const channelSelect = screen.getByRole('combobox', { name: /channel\/subgroup/i });
-      fireEvent.pointerDown(channelSelect);
-      fireEvent.click(channelSelect);
+      await user.click(channelSelect);
       const committeesOption = await screen.findByRole('option', { name: /committees/i });
-      fireEvent.click(committeesOption);
+      await user.click(committeesOption);
 
       // Verify only files with "committees" tags are visible
       await waitFor(() => {
