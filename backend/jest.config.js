@@ -26,13 +26,13 @@ module.exports = {
       statements: 0,
     },
     // Enforce coverage only on the two targeted services (>=80%)
-    'src/domains/structure/StructureService.ts': {
+    '<rootDir>/src/domains/structure/StructureService.ts': {
       branches: 80,
       functions: 80,
       lines: 80,
       statements: 80,
     },
-    'src/domains/filehub/FileHubService.ts': {
+    '<rootDir>/src/domains/filehub/FileHubService.ts': {
       branches: 80,
       functions: 80,
       lines: 80,

@@ -53,12 +53,12 @@ jobs:
             sleep 2
           done
 
-      - name: Run tests
+      - name: Run tests (unit + domains)
         env:
           CI: true
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hive_test
           OPENAI_API_KEY: test-key
           JWT_SECRET: test-jwt-secret-key-for-testing
-        run: npm run test:unit -- --coverage
+        run: npm test -- --coverage --testPathPattern="(unit|domains)"
 
 
