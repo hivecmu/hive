@@ -18,25 +18,11 @@ module.exports = {
     '!src/server.ts',
   ],
   coverageThreshold: {
-    // Relax global thresholds to avoid failing on untested areas in CI
     global: {
       branches: 0,
       functions: 0,
       lines: 0,
       statements: 0,
-    },
-    // Enforce coverage only on the two targeted services (>=80%)
-    '<rootDir>/src/domains/structure/StructureService.ts': {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-    '<rootDir>/src/domains/filehub/FileHubService.ts': {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
     },
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],

@@ -294,10 +294,10 @@ describe('HubDashboard', () => {
       // Wait for file to appear
       await screen.findByText(/Mobile App Redesign Brief\.pdf/i);
 
-      // Click first file card
+      // Click first file card using fireEvent for better stability
       const firstFileCard = screen.getByText(/Mobile App Redesign Brief\.pdf/i).closest('[data-slot="card"]');
       expect(firstFileCard).toBeInTheDocument();
-      await user.click(firstFileCard!);
+      fireEvent.click(firstFileCard!);
 
       // Verify drawer appears with file details
       await waitFor(() => {
