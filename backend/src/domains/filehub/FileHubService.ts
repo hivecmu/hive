@@ -106,6 +106,7 @@ export class FileHubService {
       }
 
       // Check for duplicate by hash
+      let isDuplicate = false;
       if (contentHash) {
         const duplicate = await db.query(
           'SELECT file_id FROM files WHERE workspace_id = $1 AND content_hash = $2',
@@ -114,15 +115,15 @@ export class FileHubService {
 
         if (duplicate.rows.length > 0) {
           logger.info('Duplicate file detected', { contentHash });
-          // Mark as duplicate but still insert
+          isDuplicate = true;
         }
       }
 
       const result = await db.query(
         `INSERT INTO files (
           workspace_id, source_id, external_id, name, mime_type,
-          size_bytes, url, content_hash, uploaded_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          size_bytes, url, content_hash, uploaded_by, is_duplicate
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *`,
         [
           workspaceId,
@@ -134,6 +135,7 @@ export class FileHubService {
           fileData.url || null,
           contentHash,
           fileData.uploadedBy || null,
+          isDuplicate,
         ]
       );
 

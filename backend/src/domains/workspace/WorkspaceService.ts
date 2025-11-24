@@ -1,6 +1,7 @@
 import { db } from '@infra/db/client';
 import { Result, Ok, Err, Issues, Issue } from '@shared/types/Result';
 import type { UUID } from '@shared/types/common';
+import { channelService } from '@domains/messaging/ChannelService';
 
 /**
  * Workspace entity
@@ -18,6 +19,7 @@ export interface Workspace {
   timezone: string;
   ownerId: UUID;
   settings: Record<string, any>;
+  blueprintApproved: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +43,7 @@ export interface UpdateWorkspaceInput {
   description?: string;
   industry?: string;
   timezone?: string;
+  blueprintApproved?: boolean;
 }
 
 /**
@@ -98,6 +101,21 @@ export class WorkspaceService {
           `INSERT INTO workspace_members (workspace_id, user_id, role)
            VALUES ($1, $2, $3)`,
           [workspace.id, input.ownerId, 'admin']
+        );
+
+        // Create default "general" channel
+        // Note: The database trigger will automatically add all workspace members to this channel
+        await client.query(
+          `INSERT INTO channels (workspace_id, name, description, type, is_private, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            workspace.id,
+            'general',
+            'General discussion for the workspace',
+            'core',
+            false,
+            input.ownerId
+          ]
         );
 
         return workspace;
@@ -200,6 +218,10 @@ export class WorkspaceService {
         setClauses.push(`timezone = $${paramIndex++}`);
         values.push(updates.timezone);
       }
+      if (updates.blueprintApproved !== undefined) {
+        setClauses.push(`blueprint_approved = $${paramIndex++}`);
+        values.push(updates.blueprintApproved);
+      }
 
       if (setClauses.length === 0) {
         // No updates, just return current workspace
@@ -298,6 +320,7 @@ export class WorkspaceService {
       timezone: row.timezone,
       ownerId: row.owner_id,
       settings: row.settings || {},
+      blueprintApproved: row.blueprint_approved || false,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };

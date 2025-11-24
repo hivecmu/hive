@@ -2,11 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Organization, WorkspaceStructure } from '@/types/organization';
-import { getDatabase, MockDatabaseService } from '@/lib/mockDb';
 import { api } from '@/lib/api/client';
 import { toast } from 'sonner';
-
-const USE_REAL_BACKEND = process.env.NEXT_PUBLIC_USE_REAL_BACKEND === 'true';
 
 interface OrganizationContextType {
   // Current organization
@@ -36,7 +33,6 @@ interface OrganizationProviderProps {
 }
 
 export function OrganizationProvider({ children }: OrganizationProviderProps) {
-  const [db] = useState<MockDatabaseService>(() => getDatabase());
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -49,10 +45,9 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
 
   const loadData = async () => {
     setIsLoading(true);
-
-    if (USE_REAL_BACKEND) {
-      // Load from real API
-      try {
+    
+    // Load from real API
+    try {
         const result = await api.workspaces.list();
 
         if (result.ok) {
@@ -69,7 +64,8 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
             industry: ws.industry || '',
             timezone: ws.timezone || 'UTC',
             createdAt: ws.createdAt,
-            channels: [], // Will be loaded separately
+            // Note: channels are loaded separately via useChannels hook
+            channels: [],
             workstreams: [],
             committees: [],
             directMessages: [],
@@ -78,7 +74,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
               workstreams: [],
               committees: [],
               directMessages: [],
-              blueprintApproved: false,
+              blueprintApproved: ws.blueprintApproved || false, // Map from backend
               blueprintVersion: 0,
               blueprintData: null,
               wizardData: null,
@@ -108,123 +104,101 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
         console.error('Failed to load organizations:', error);
         toast.error('Failed to load workspaces');
       }
-    } else {
-      // Use mock database
-      const allOrgs = db.getAllOrganizations();
-      const currOrg = db.getCurrentOrganization();
-      const currOrgId = db.getCurrentOrgId();
-
-      setOrganizations(allOrgs);
-      setCurrentOrg(currOrg);
-      setCurrentOrgId(currOrgId);
-    }
 
     setIsLoading(false);
   };
 
   const switchOrganization = async (orgId: string) => {
-    if (USE_REAL_BACKEND) {
-      try {
-        const result = await api.workspaces.get(orgId);
-        if (result.ok) {
-          localStorage.setItem('hive_current_org_id', orgId);
-          const newOrg = organizations.find(o => o.id === orgId);
-          if (newOrg) {
-            setCurrentOrg(newOrg);
-            setCurrentOrgId(orgId);
-            toast.success(`Switched to ${newOrg.name}`);
-          }
-        } else {
-          toast.error('Failed to switch workspace');
+    try {
+      const result = await api.workspaces.get(orgId);
+      if (result.ok) {
+        localStorage.setItem('hive_current_org_id', orgId);
+        const newOrg = organizations.find(o => o.id === orgId);
+        if (newOrg) {
+          setCurrentOrg(newOrg);
+          setCurrentOrgId(orgId);
+          toast.success(`Switched to ${newOrg.name}`);
         }
-      } catch (error) {
-        toast.error('Connection error');
-      }
-    } else {
-      const success = db.switchOrganization(orgId);
-      if (success) {
-        const newOrg = db.getOrganization(orgId);
-        setCurrentOrg(newOrg);
-        setCurrentOrgId(orgId);
-        toast.success(`Switched to ${newOrg?.name || 'organization'}`);
       } else {
-        toast.error('Failed to switch organization');
+        toast.error('Failed to switch workspace');
       }
+    } catch (error) {
+      toast.error('Connection error');
     }
   };
 
   const createOrganization = async (org: Organization) => {
-    if (USE_REAL_BACKEND) {
-      try {
-        const result = await api.workspaces.create({
-          name: org.name,
-          slug: org.name.toLowerCase().replace(/\s+/g, '-'),
-          type: org.type,
-          emoji: org.emoji,
-          color: org.color,
-        });
+    try {
+      const result = await api.workspaces.create({
+        name: org.name,
+        slug: org.name.toLowerCase().replace(/\s+/g, '-'),
+        type: org.type,
+        emoji: org.emoji,
+        color: org.color,
+      });
 
-        if (result.ok) {
-          toast.success(`Created ${org.name}`);
-          await loadData(); // Reload all organizations
-        } else {
-          toast.error(result.issues[0]?.message || 'Failed to create workspace');
-        }
-      } catch (error) {
-        toast.error('Connection error');
+      if (result.ok) {
+        toast.success(`Created ${org.name}`);
+        await loadData(); // Reload all organizations
+      } else {
+        toast.error(result.issues[0]?.message || 'Failed to create workspace');
       }
-    } else {
-      const createdOrg = db.createOrganization(org);
-      setCurrentOrg(createdOrg);
-      setCurrentOrgId(createdOrg.id);
-      setOrganizations(db.getAllOrganizations());
-      toast.success(`Created ${createdOrg.name}`);
+    } catch (error) {
+      toast.error('Connection error');
     }
   };
 
-  const updateOrganization = (orgId: string, updates: Partial<Organization>) => {
-    const updated = db.updateOrganization(orgId, updates);
-    if (updated) {
-      if (orgId === currentOrgId) {
-        setCurrentOrg(updated);
+  const updateOrganization = async (orgId: string, updates: Partial<Organization>) => {
+    try {
+      const result = await api.workspaces.update(orgId, updates);
+      if (result.ok) {
+        await loadData();
+        toast.success('Workspace updated');
+      } else {
+        toast.error('Failed to update workspace');
       }
-      setOrganizations(db.getAllOrganizations());
+    } catch (error) {
+      toast.error('Connection error');
     }
   };
 
-  const updateWorkspace = (orgId: string, workspace: Partial<WorkspaceStructure>) => {
-    const success = db.updateWorkspace(orgId, workspace);
-    if (success) {
-      if (orgId === currentOrgId) {
-        const updated = db.getOrganization(orgId);
-        setCurrentOrg(updated);
+  const updateWorkspace = async (orgId: string, workspace: Partial<WorkspaceStructure>) => {
+    // Update workspace structure via backend
+    try {
+      const result = await api.workspaces.update(orgId, { ...workspace });
+      if (result.ok) {
+        await loadData();
+      } else {
+        toast.error('Failed to update workspace');
       }
-      setOrganizations(db.getAllOrganizations());
+    } catch (error) {
+      toast.error('Connection error');
     }
   };
 
-  const approveBlueprint = (orgId: string, blueprintData: any) => {
-    const success = db.approveBlueprint(orgId, blueprintData);
-    if (success) {
-      if (orgId === currentOrgId) {
-        const updated = db.getOrganization(orgId);
-        setCurrentOrg(updated);
+  const approveBlueprint = async (orgId: string, blueprintData: any) => {
+    // The backend already updates blueprintApproved when structure is applied
+    // Just refresh the organization data
+    await loadData();
+    toast.success('Blueprint approved! Hub is now unlocked.');
+  };
+
+  const deleteOrganization = async (orgId: string) => {
+    try {
+      const result = await api.workspaces.delete(orgId);
+      if (result.ok) {
+        await loadData(); // Reload everything
+        toast.success('Workspace deleted');
+      } else {
+        toast.error('Failed to delete workspace');
       }
-      setOrganizations(db.getAllOrganizations());
-      toast.success('Blueprint approved! Hub is now unlocked.');
+    } catch (error) {
+      toast.error('Connection error');
     }
   };
 
-  const deleteOrganization = (orgId: string) => {
-    const success = db.deleteOrganization(orgId);
-    if (success) {
-      loadData(); // Reload everything
-      toast.success('Organization deleted');
-    }
-  };
-
-  const refreshOrganizations = () => {
-    loadData();
+  const refreshOrganizations = async () => {
+    await loadData();
   };
 
   const value: OrganizationContextType = {

@@ -4,8 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MessageSquare } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import { useMessages } from "@/lib/hooks/useMessages";
+import { ThreadView } from "./ThreadView";
+import { useQuery } from "@tanstack/react-query";
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
@@ -48,11 +52,41 @@ interface MessagePaneProps {
   channelId: string | null;
 }
 
+interface ThreadCount {
+  [messageId: string]: number;
+}
+
 export function MessagePane({ channelId }: MessagePaneProps) {
   const { data: messages = [], isLoading, error } = useMessages(channelId);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [selectedThread, setSelectedThread] = useState<any>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { isConnected, onMessage, onUserTyping, onUserStoppedTyping, joinChannel, leaveChannel } = useSocket();
+
+  // Fetch thread counts for all messages
+  const { data: threadCounts = {} } = useQuery<ThreadCount>({
+    queryKey: ['threadCounts', channelId],
+    queryFn: async () => {
+      if (!channelId) return {};
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/v1/channels/${channelId}/thread-counts`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('hive_auth_token')}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return {};
+      }
+
+      const result = await response.json();
+      return result.value || {};
+    },
+    enabled: !!channelId,
+  });
 
   // Join channel on mount
   useEffect(() => {
@@ -129,31 +163,63 @@ export function MessagePane({ channelId }: MessagePaneProps) {
   }
 
   return (
-    <ScrollArea className="flex-1 bg-background" ref={scrollAreaRef}>
-      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className="flex gap-3 hover:bg-accent p-2 -m-2 rounded transition-colors group"
-          >
-            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 mt-0.5 flex-shrink-0">
-              <AvatarFallback className="text-sm bg-primary text-primary-foreground">
-                {getInitials(message.user?.name || 'Unknown')}
-              </AvatarFallback>
-            </Avatar>
+    <>
+      <ScrollArea className="flex-1 bg-background" ref={scrollAreaRef}>
+        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+          {messages.map((message) => {
+            const replyCount = message.threadId ? threadCounts[message.id] || 0 : threadCounts[message.id] || 0;
+            const isThreadParent = !message.threadId && replyCount > 0;
+            
+            return (
+              <div
+                key={message.id}
+                className="flex gap-3 hover:bg-accent p-2 -m-2 rounded transition-colors group"
+              >
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 mt-0.5 flex-shrink-0">
+                  <AvatarFallback className="text-sm bg-primary text-primary-foreground">
+                    {getInitials(message.user?.name || 'Unknown')}
+                  </AvatarFallback>
+                </Avatar>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                <span className="text-foreground font-medium">{message.user?.name || 'Unknown'}</span>
-                <span className="text-sm text-muted-foreground">{formatTimestamp(message.createdAt)}</span>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                    <span className="text-foreground font-medium">{message.user?.name || 'Unknown'}</span>
+                    <span className="text-sm text-muted-foreground">{formatTimestamp(message.createdAt)}</span>
+                    {message.threadId && (
+                      <Badge variant="outline" className="text-xs">
+                        Reply in thread
+                      </Badge>
+                    )}
+                  </div>
 
-              <div className="text-foreground break-words">
-                {message.content}
+                  <div className="text-foreground break-words">
+                    {message.content}
+                  </div>
+
+                  {/* Thread indicator and reply button */}
+                  {!message.threadId && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs hover:bg-background"
+                        onClick={() => setSelectedThread(message)}
+                      >
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        {isThreadParent ? (
+                          <>
+                            {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                          </>
+                        ) : (
+                          'Reply in thread'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            );
+          })}
 
         {/* Typing indicator */}
         {typingUsers.size > 0 && (
@@ -173,5 +239,14 @@ export function MessagePane({ channelId }: MessagePaneProps) {
         )}
       </div>
     </ScrollArea>
+
+    {/* Thread View */}
+    {selectedThread && (
+      <ThreadView
+        parentMessage={selectedThread}
+        onClose={() => setSelectedThread(null)}
+      />
+    )}
+  </>
   );
 }

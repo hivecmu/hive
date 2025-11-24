@@ -81,7 +81,7 @@ CREATE TABLE messages (
   channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   content TEXT NOT NULL,
-  thread_id UUID REFERENCES messages(id),
+  thread_id UUID REFERENCES messages(id) ON DELETE CASCADE,
   edited_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );

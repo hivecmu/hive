@@ -24,7 +24,7 @@ CREATE TABLE intake_forms (
 CREATE TABLE proposals (
   job_id UUID REFERENCES structure_jobs(job_id) ON DELETE CASCADE,
   version INT NOT NULL,
-  score NUMERIC(3,2),
+  score NUMERIC(3,2) NOT NULL,
   rationale TEXT,
   proposal JSONB NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,

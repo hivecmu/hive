@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,143 +30,174 @@ import {
   AlertCircle,
   RefreshCw,
   Settings,
-  Eye
+  Eye,
+  Upload,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api/client";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface HubDashboardProps {
   onBack: () => void;
 }
 
-const sources = [
-  { id: 1, name: "Google Drive", status: "linked", icon: "🗂️", lastSync: "2 min ago", filesCount: 1247 },
-  { id: 2, name: "Dropbox", status: "linking", icon: "📦", lastSync: "Syncing...", filesCount: 0 },
-  { id: 3, name: "OneDrive", status: "unlinked", icon: "☁️", lastSync: "Never", filesCount: 0 },
-  { id: 4, name: "Notion", status: "linked", icon: "📝", lastSync: "5 min ago", filesCount: 89 },
-  { id: 5, name: "GitHub", status: "reauth", icon: "⚡", lastSync: "1 hour ago", filesCount: 156 },
-];
+interface FileItem {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  channelId?: string;
+  messageId?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  tags?: string[];
+  indexed?: boolean;
+  s3Key: string;
+  metadata?: Record<string, any>;
+}
 
-const files = [
-  {
-    id: 1,
-    title: "Mobile App Redesign Brief.pdf",
-    type: "pdf",
-    source: "Google Drive",
-    tags: ["workstreams/app-redesign"],
-    duplicates: 2,
-    modified: "2 hours ago",
-    size: "2.4 MB"
-  },
-  {
-    id: 2,
-    title: "Homepage wireframes.fig",
-    type: "figma",
-    source: "Dropbox",
-    tags: ["workstreams/website"],
-    duplicates: 0,
-    modified: "1 day ago",
-    size: "18.2 MB"
-  },
-  {
-    id: 3,
-    title: "client-pitch.md",
-    type: "markdown",
-    source: "GitHub",
-    tags: ["committees/marketing"],
-    duplicates: 0,
-    modified: "3 days ago",
-    size: "45 KB"
-  },
-  {
-    id: 4,
-    title: "Meeting Notes - 2025-09-20",
-    type: "notion",
-    source: "Notion",
-    tags: ["#general"],
-    duplicates: 1,
-    modified: "1 week ago",
-    size: "12 KB"
-  },
-  {
-    id: 5,
-    title: "Design System Components.sketch",
-    type: "sketch",
-    source: "Google Drive",
-    tags: ["committees/design"],
-    duplicates: 3,
-    modified: "2 weeks ago",
-    size: "156 MB"
-  },
-  {
-    id: 6,
-    title: "API Documentation.pdf",
-    type: "pdf",
-    source: "GitHub",
-    tags: ["committees/development"],
-    duplicates: 0,
-    modified: "3 weeks ago",
-    size: "890 KB"
-  }
-];
-
-const getFileIcon = (type: string) => {
-  switch (type) {
-    case "pdf":
-      return <FileText className="h-5 w-5 text-destructive" />;
-    case "figma":
-    case "sketch":
-      return <Image className="h-5 w-5 text-chart-4" />;
-    case "markdown":
-      return <File className="h-5 w-5 text-chart-1" />;
-    case "notion":
-      return <FileText className="h-5 w-5 text-muted-foreground" />;
-    default:
-      return <File className="h-5 w-5 text-foreground" />;
+const getFileIcon = (mimeType: string) => {
+  if (mimeType.startsWith('image/')) {
+    return <Image className="h-5 w-5 text-chart-4" />;
+  } else if (mimeType === 'application/pdf') {
+    return <FileText className="h-5 w-5 text-destructive" />;
+  } else if (mimeType.includes('text')) {
+    return <FileText className="h-5 w-5 text-chart-1" />;
+  } else {
+    return <File className="h-5 w-5 text-foreground" />;
   }
 };
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "linked":
-      return <CheckCircle className="h-4 w-4 text-chart-2" />;
-    case "linking":
-      return <RefreshCw className="h-4 w-4 text-chart-1 animate-spin" />;
-    case "reauth":
-      return <AlertCircle className="h-4 w-4 text-chart-4" />;
-    default:
-      return <Clock className="h-4 w-4 text-muted-foreground" />;
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
+  if (bytes < 1073741824) return Math.round(bytes / 1048576) + ' MB';
+  return Math.round(bytes / 1073741824) + ' GB';
+};
+
+const formatTimestamp = (timestamp: string) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  
+  if (diff < 3600000) {
+    const minutes = Math.floor(diff / 60000);
+    return minutes === 0 ? 'Just now' : `${minutes} min ago`;
+  } else if (diff < 86400000) {
+    const hours = Math.floor(diff / 3600000);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else if (diff < 604800000) {
+    const days = Math.floor(diff / 86400000);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  } else {
+    return date.toLocaleDateString();
   }
 };
 
 export function HubDashboard({ onBack }: HubDashboardProps) {
-  const [selectedFile, setSelectedFile] = useState<typeof files[0] | null>(null);
+  const { currentOrg } = useOrganization();
+  const queryClient = useQueryClient();
+  
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSource, setSelectedSource] = useState<string>("all");
-  const [selectedChannel, setSelectedChannel] = useState<string>("all");
-
+  const [selectedMimeType, setSelectedMimeType] = useState<string>("all");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [dedupeEnabled, setDedupeEnabled] = useState(true);
   const [similarityEnabled, setSimilarityEnabled] = useState(false);
 
-  const handleLinkSource = (sourceId: number) => {
-    const source = sources.find(s => s.id === sourceId);
-    if (source) {
-      // Simulate OAuth flow
-      toast.success(`Linking to ${source.name}...`);
-      setTimeout(() => {
-        toast.success(`${source.name} linked successfully! Full sync started.`);
-      }, 2000);
-    }
-  };
+  // Fetch files from backend
+  const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = useQuery({
+    queryKey: ['files', currentOrg?.id, searchQuery, selectedMimeType, selectedTags],
+    queryFn: async () => {
+      if (!currentOrg?.id) return [];
+      
+      const params: any = {};
+      if (searchQuery) params.q = searchQuery;
+      if (selectedMimeType !== 'all') params.mimeType = selectedMimeType;
+      if (selectedTags.length > 0) params.tags = selectedTags.join(',');
+      params.limit = 100;
 
-  const filteredFiles = files.filter(file => {
-    const matchesSearch = file.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSource = selectedSource === "all" || file.source === selectedSource;
-    const matchesChannel = selectedChannel === "all" || file.tags.some(tag => tag.includes(selectedChannel));
-    return matchesSearch && matchesSource && matchesChannel;
+      const result = await api.files.search(params);
+      if (result.ok) {
+        return result.value as FileItem[];
+      } else {
+        toast.error('Failed to load files');
+        return [];
+      }
+    },
+    enabled: !!currentOrg?.id,
   });
 
-  const linkedSources = sources.filter(s => s.status === "linked");
-  const totalFiles = linkedSources.reduce((sum, source) => sum + source.filesCount, 0);
+  // Create sync job mutation
+  const syncFilesMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentOrg?.id) throw new Error('No workspace selected');
+      return api.files.createSyncJob(currentOrg.id);
+    },
+    onSuccess: () => {
+      toast.success('File sync started');
+      setTimeout(() => refetchFiles(), 2000); // Refetch after 2 seconds
+    },
+    onError: () => {
+      toast.error('Failed to start file sync');
+    },
+  });
+
+  // Tag file mutation
+  const tagFileMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      return api.files.tag(fileId);
+    },
+    onSuccess: () => {
+      toast.success('File tagged successfully');
+      refetchFiles();
+    },
+    onError: () => {
+      toast.error('Failed to tag file');
+    },
+  });
+
+  // Index file mutation
+  const indexFileMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      return api.files.index(fileId);
+    },
+    onSuccess: () => {
+      toast.success('File indexed successfully');
+      refetchFiles();
+    },
+    onError: () => {
+      toast.error('Failed to index file');
+    },
+  });
+
+  const handleFileUpload = () => {
+    // TODO: Implement file upload
+    toast.info('File upload coming soon');
+  };
+
+  const handleSyncFiles = () => {
+    syncFilesMutation.mutate();
+  };
+
+  const handleTagFile = (fileId: string) => {
+    tagFileMutation.mutate(fileId);
+  };
+
+  const handleIndexFile = (fileId: string) => {
+    indexFileMutation.mutate(fileId);
+  };
+
+  // Extract unique mime types and tags from files
+  const mimeTypes = Array.from(new Set(files.map(f => f.mimeType)));
+  const allTags = Array.from(new Set(files.flatMap(f => f.tags || [])));
+
+  // Calculate stats
+  const totalFiles = files.length;
+  const indexedFiles = files.filter(f => f.indexed).length;
+  const taggedFiles = files.filter(f => f.tags && f.tags.length > 0).length;
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
@@ -185,189 +216,158 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">
-                  Structured by: Blueprint v1
+                  {totalFiles} files
                 </Badge>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-5 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  View structure
-                </Button>
+                {currentOrg?.workspace?.blueprintApproved && (
+                  <Badge variant="outline" className="text-xs">
+                    Blueprint Approved
+                  </Badge>
+                )}
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncFiles}
+              disabled={syncFilesMutation.isPending}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncFilesMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync Files
+            </Button>
+            <Button size="sm" onClick={handleFileUpload}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload File
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex">
-        <div className={`flex-1 ${selectedFile ? 'mr-[400px]' : ''} transition-all duration-200`}>
-          <Tabs defaultValue="overview" className="h-full flex flex-col">
-            <div className="border-b border-border">
-              <TabsList className="grid w-full grid-cols-5 max-w-2xl">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="files">Files</TabsTrigger>
-                <TabsTrigger value="sources">Sources</TabsTrigger>
-                <TabsTrigger value="rules">Rules</TabsTrigger>
-                <TabsTrigger value="audits">Audits</TabsTrigger>
-              </TabsList>
-            </div>
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="files" className="h-full">
+          <div className="px-6 pt-4">
+            <TabsList>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="sources">Sources</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </div>
 
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="overview" className="h-full p-6">
-                {linkedSources.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Card className="w-96">
-                      <CardHeader className="text-center">
-                        <div className="mx-auto mb-4 p-3 bg-muted rounded-full w-fit">
-                          <FolderOpen className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <CardTitle>Connect sources to start consolidating files</CardTitle>
-                        <CardDescription>
-                          We'll tag files by channel/subgroup automatically.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          {sources.filter(s => s.status === "unlinked").map(source => (
-                            <Badge 
-                              key={source.id}
-                              variant="outline" 
-                              className="cursor-pointer hover:bg-accent"
-                              onClick={() => handleLinkSource(source.id)}
-                            >
-                              {source.icon} {source.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+          <TabsContent value="files" className="px-6 pb-6 h-[calc(100%-5rem)]">
+            <div className="flex flex-col h-full gap-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Files</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{totalFiles}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Indexed</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{indexedFiles}</div>
+                    <Progress value={(indexedFiles / Math.max(totalFiles, 1)) * 100} className="mt-2" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Tagged</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{taggedFiles}</div>
+                    <Progress value={(taggedFiles / Math.max(totalFiles, 1)) * 100} className="mt-2" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Size</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Search and Filter */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search files..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedMimeType} onValueChange={setSelectedMimeType}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="File type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {mimeTypes.map(type => (
+                      <SelectItem key={type} value={type}>
+                        {type.split('/')[1] || type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Files Grid */}
+              <ScrollArea className="flex-1">
+                {filesLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-muted-foreground">Loading files...</div>
+                  </div>
+                ) : files.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 gap-4">
+                    <File className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-muted-foreground">No files found</div>
+                    <Button onClick={handleSyncFiles} variant="outline">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync Files
+                    </Button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-3 gap-6">
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-2xl font-medium">{totalFiles.toLocaleString()}</div>
-                          <div className="text-sm text-muted-foreground">Total Files</div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-2xl font-medium">{linkedSources.length}</div>
-                          <div className="text-sm text-muted-foreground">Connected Sources</div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-2xl font-medium">12</div>
-                          <div className="text-sm text-muted-foreground">Duplicates Collapsed</div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3 text-sm">
-                            <CheckCircle className="h-4 w-4 text-chart-2" />
-                            <span>Google Drive sync completed - 1,247 files processed</span>
-                            <span className="text-muted-foreground">2 min ago</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-sm">
-                            <RefreshCw className="h-4 w-4 text-chart-1" />
-                            <span>Dropbox sync in progress...</span>
-                            <span className="text-muted-foreground">5 min ago</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-sm">
-                            <Tag className="h-4 w-4 text-chart-4" />
-                            <span>Auto-tagged 89 files to workstreams/app-redesign</span>
-                            <span className="text-muted-foreground">1 hour ago</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="files" className="h-full p-6">
-                <div className="space-y-4 h-full flex flex-col">
-                  {/* Toolbar */}
-                  <div className="flex items-center gap-4 pb-4 border-b border-border">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search titles, text, tags"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select value={selectedSource} onValueChange={setSelectedSource}>
-                      <SelectTrigger className="w-40" aria-label="Source">
-                        <SelectValue placeholder="Source" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Sources</SelectItem>
-                        {sources.filter(s => s.status === "linked").map(source => (
-                          <SelectItem key={source.id} value={source.name}>{source.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={selectedChannel} onValueChange={setSelectedChannel}>
-                      <SelectTrigger className="w-48" aria-label="Channel/Subgroup">
-                        <SelectValue placeholder="Channel/Subgroup" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Channels</SelectItem>
-                        <SelectItem value="workstreams">Workstreams</SelectItem>
-                        <SelectItem value="committees">Committees</SelectItem>
-                        <SelectItem value="general">#general</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Dedup Banner */}
-                  <div className="bg-muted/50 border border-border rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">We collapsed 12 duplicates by content hash.</span>
-                      <Button variant="ghost" size="sm" className="text-foreground hover:text-muted-foreground">
-                        View rules →
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Files Grid */}
-                  <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {filteredFiles.map((file) => (
-                        <Card 
-                          key={file.id} 
-                          className="cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => setSelectedFile(file)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex-shrink-0 mt-0.5">
-                                {getFileIcon(file.type)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-medium truncate">{file.title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" className="text-xs">
-                                    {file.source}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {files.map((file) => (
+                      <Card 
+                        key={file.id} 
+                        className="cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => setSelectedFile(file)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              {getFileIcon(file.mimeType)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium truncate">{file.filename}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-xs">
+                                  {formatFileSize(file.size)}
+                                </Badge>
+                                {file.indexed && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Indexed
                                   </Badge>
-                                  {file.duplicates > 0 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {file.duplicates} duplicates
-                                    </Badge>
-                                  )}
-                                </div>
+                                )}
+                              </div>
+                              {file.tags && file.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {file.tags.map(tag => (
                                     <Badge key={tag} variant="outline" className="text-xs">
@@ -375,291 +375,323 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                                     </Badge>
                                   ))}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-2">
-                                  {file.modified} • {file.size}
-                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground mt-2">
+                                {formatTimestamp(file.uploadedAt)}
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="sources" className="h-full p-6">
-                <div className="space-y-4">
-                  <div className="bg-muted/50 border border-border rounded-lg p-3">
-                    <span className="text-sm">We only request read-only scopes by default.</span>
-                  </div>
-                  
-                  <div className="grid gap-4">
-                    {sources.map((source) => (
-                      <Card key={source.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="text-2xl">{source.icon}</span>
-                              <div>
-                                <h3 className="font-medium">{source.name}</h3>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  {getStatusIcon(source.status)}
-                                  <span className="capitalize">{source.status}</span>
-                                  <span>•</span>
-                                  <span>Last sync: {source.lastSync}</span>
-                                  {source.filesCount > 0 && (
-                                    <>
-                                      <span>•</span>
-                                      <span>{source.filesCount.toLocaleString()} files</span>
-                                    </>
-                                  )}
-                                </div>
+                              <div className="flex gap-2 mt-2">
+                                {!file.indexed && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleIndexFile(file.id);
+                                    }}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Index
+                                  </Button>
+                                )}
+                                {(!file.tags || file.tags.length === 0) && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTagFile(file.id);
+                                    }}
+                                  >
+                                    <Tag className="h-3 w-3 mr-1" />
+                                    Tag
+                                  </Button>
+                                )}
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {source.status === "unlinked" && (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => handleLinkSource(source.id)}
-                                >
-                                  Link
-                                </Button>
-                              )}
-                              {source.status === "linked" && (
-                                <Button variant="outline" size="sm">
-                                  Manage
-                                </Button>
-                              )}
-                              {source.status === "reauth" && (
-                                <Button variant="outline" size="sm">
-                                  Reauth
-                                </Button>
-                              )}
-                              <Button variant="ghost" size="sm">
-                                ⋮
-                              </Button>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                </div>
-              </TabsContent>
+                )}
+              </ScrollArea>
+            </div>
+          </TabsContent>
 
-              <TabsContent value="rules" className="h-full p-6">
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Dedupe Rules</CardTitle>
-                      <CardDescription>Configure how we identify and handle duplicate files</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label htmlFor="hash-dedupe">Hash-only deduplication</Label>
-                          <p className="text-sm text-muted-foreground">Identify duplicates by content hash (exact matches)</p>
-                        </div>
-                        <Switch 
-                          id="hash-dedupe" 
-                          checked={dedupeEnabled} 
-                          onCheckedChange={setDedupeEnabled} 
-                        />
+          <TabsContent value="sources" className="px-6 pb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>File Sources</CardTitle>
+                <CardDescription>Connect external services to sync files</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        📁
                       </div>
-                      <Separator />
-                      <div className="flex items-center justify-between opacity-50">
-                        <div>
-                          <Label htmlFor="similarity-dedupe">Similarity ≥ 90%</Label>
-                          <p className="text-sm text-muted-foreground">Identify similar files (coming soon)</p>
-                        </div>
-                        <Switch 
-                          id="similarity-dedupe" 
-                          checked={similarityEnabled} 
-                          onCheckedChange={setSimilarityEnabled} 
-                          disabled
-                        />
+                      <div>
+                        <div className="font-medium">Local Upload</div>
+                        <div className="text-sm text-muted-foreground">Upload files directly</div>
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Tagging Rules</CardTitle>
-                      <CardDescription>Rules for automatically tagging files by channel/subgroup</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="text-sm font-medium">Current Rules</div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-                            <span>path contains /workstreams/app-redesign</span>
-                            <span>→</span>
-                            <Badge variant="outline">workstreams/app-redesign</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-                            <span>path contains /design/</span>
-                            <span>→</span>
-                            <Badge variant="outline">committees/design</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-                            <span>filename contains "meeting"</span>
-                            <span>→</span>
-                            <Badge variant="outline">#general</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <div className="flex justify-between">
-                    <Button variant="ghost" className="text-muted-foreground">
-                      Restore defaults
+                    </div>
+                    <Button onClick={handleFileUpload}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Upload
                     </Button>
-                    <Button onClick={() => toast.success("Rules saved successfully")}>
-                      Save
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        🗂️
+                      </div>
+                      <div>
+                        <div className="font-medium">Google Drive</div>
+                        <div className="text-sm text-muted-foreground">Coming soon</div>
+                      </div>
+                    </div>
+                    <Button disabled variant="outline">
+                      Connect
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        📦
+                      </div>
+                      <div>
+                        <div className="font-medium">Dropbox</div>
+                        <div className="text-sm text-muted-foreground">Coming soon</div>
+                      </div>
+                    </div>
+                    <Button disabled variant="outline">
+                      Connect
                     </Button>
                   </div>
                 </div>
-              </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <TabsContent value="audits" className="h-full p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Audit Log</CardTitle>
-                    <CardDescription>Recent changes and system events</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>Google Drive full sync completed</span>
-                        <span className="text-muted-foreground">2 min ago</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <Tag className="h-4 w-4 text-chart-4" />
-                        <span>Auto-tagged 89 files based on path rules</span>
-                        <span className="text-muted-foreground">1 hour ago</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <Settings className="h-4 w-4 text-chart-1" />
-                        <span>Deduplication rules updated</span>
-                        <span className="text-muted-foreground">2 hours ago</span>
-                      </div>
+          <TabsContent value="insights" className="px-6 pb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>File Insights</CardTitle>
+                <CardDescription>Analytics and patterns in your files</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-medium mb-2">File Types Distribution</h3>
+                    <div className="space-y-2">
+                      {mimeTypes.map(type => {
+                        const count = files.filter(f => f.mimeType === type).length;
+                        const percentage = (count / Math.max(totalFiles, 1)) * 100;
+                        return (
+                          <div key={type} className="flex items-center gap-2">
+                            <div className="w-32 text-sm">{type.split('/')[1] || type}</div>
+                            <div className="flex-1">
+                              <Progress value={percentage} />
+                            </div>
+                            <div className="text-sm text-muted-foreground">{count}</div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
+                  </div>
 
-        {/* File Detail Drawer */}
-        {selectedFile && (
-          <div className="fixed right-0 top-0 w-[400px] h-full bg-card text-card-foreground border-l border-border flex flex-col">
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">File Details</h3>
-                <Button 
-                  variant="ghost" 
+                  <Separator />
+
+                  <div>
+                    <h3 className="font-medium mb-2">Top Tags</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {allTags.slice(0, 10).map(tag => {
+                        const count = files.filter(f => f.tags?.includes(tag)).length;
+                        return (
+                          <Badge key={tag} variant="secondary">
+                            {tag} ({count})
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="px-6 pb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Hub Settings</CardTitle>
+                <CardDescription>Configure file processing and organization</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="dedupe">Automatic Deduplication</Label>
+                    <p className="text-sm text-muted-foreground">Remove duplicate files automatically</p>
+                  </div>
+                  <Switch
+                    id="dedupe"
+                    checked={dedupeEnabled}
+                    onCheckedChange={setDedupeEnabled}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="similarity">Similarity Detection</Label>
+                    <p className="text-sm text-muted-foreground">Find and group similar files</p>
+                  </div>
+                  <Switch
+                    id="similarity"
+                    checked={similarityEnabled}
+                    onCheckedChange={setSimilarityEnabled}
+                  />
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label>Auto-tagging</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Automatically tag files based on content and context
+                  </p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      const untaggedFiles = files.filter(f => !f.tags || f.tags.length === 0);
+                      if (untaggedFiles.length > 0) {
+                        toast.info(`Tagging ${untaggedFiles.length} files...`);
+                        untaggedFiles.forEach(f => handleTagFile(f.id));
+                      } else {
+                        toast.info('All files are already tagged');
+                      }
+                    }}
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Tag All Untagged Files
+                  </Button>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label>Indexing</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Index files for semantic search
+                  </p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      const unindexedFiles = files.filter(f => !f.indexed);
+                      if (unindexedFiles.length > 0) {
+                        toast.info(`Indexing ${unindexedFiles.length} files...`);
+                        unindexedFiles.forEach(f => handleIndexFile(f.id));
+                      } else {
+                        toast.info('All files are already indexed');
+                      }
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Index All Files
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* File Detail Modal */}
+      {selectedFile && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  {getFileIcon(selectedFile.mimeType)}
+                  <div>
+                    <CardTitle>{selectedFile.filename}</CardTitle>
+                    <CardDescription>{selectedFile.mimeType}</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => setSelectedFile(null)}
                 >
-                  ×
+                  ✕
                 </Button>
               </div>
-            </div>
-            
-            <ScrollArea className="flex-1">
-              <div className="p-6 space-y-6">
-                {/* Overview */}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium mb-3">Overview</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      {getFileIcon(selectedFile.type)}
-                      <div className="flex-1">
-                        <div className="font-medium">{selectedFile.title}</div>
-                        <div className="text-sm text-muted-foreground">{selectedFile.size}</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Source</div>
-                        <div>{selectedFile.source}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Modified</div>
-                        <div>{selectedFile.modified}</div>
-                      </div>
-                    </div>
+                  <Label>Size</Label>
+                  <div className="text-sm">{formatFileSize(selectedFile.size)}</div>
+                </div>
+                <div>
+                  <Label>Uploaded</Label>
+                  <div className="text-sm">{formatTimestamp(selectedFile.uploadedAt)}</div>
+                </div>
+                <div>
+                  <Label>Uploaded By</Label>
+                  <div className="text-sm">{selectedFile.uploadedBy}</div>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <div className="flex gap-2">
+                    {selectedFile.indexed && <Badge variant="secondary">Indexed</Badge>}
+                    {selectedFile.tags && selectedFile.tags.length > 0 && <Badge variant="secondary">Tagged</Badge>}
                   </div>
                 </div>
+              </div>
 
-                {/* Locations */}
+              {selectedFile.tags && selectedFile.tags.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-3">Locations</h4>
-                  <div className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-between">
-                      <span>Open in {selectedFile.source}</span>
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    {selectedFile.duplicates > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        + {selectedFile.duplicates} other locations
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <h4 className="font-medium mb-3">Tags</h4>
-                  <div className="flex flex-wrap gap-2">
+                  <Label>Tags</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {selectedFile.tags.map(tag => (
                       <Badge key={tag} variant="outline">{tag}</Badge>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Actions */}
-                <div>
-                  <h4 className="font-medium mb-3">Actions</h4>
-                  <div className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Hub link
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Tag className="h-4 w-4 mr-2" />
-                      Refocus to channel...
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Audit */}
-                <div>
-                  <h4 className="font-medium mb-3">Recent Activity</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-3 w-3" />
-                      <span>Auto-tagged to workstreams/app-redesign</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Download className="h-3 w-3" />
-                      <span>Synced from Google Drive</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3 w-3" />
-                      <span>File created</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open
+                </Button>
+                {!selectedFile.indexed && (
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      handleIndexFile(selectedFile.id);
+                      setSelectedFile(null);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Index
+                  </Button>
+                )}
               </div>
-            </ScrollArea>
-          </div>
-        )}
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

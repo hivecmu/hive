@@ -4,6 +4,8 @@ import type { StructureContext, StructureProposal } from '@core/ai/prompts/struc
 import { Result, Ok, Err, Issues, Issue } from '@shared/types/Result';
 import type { UUID } from '@shared/types/common';
 import { logger } from '@shared/utils/logger';
+import { channelService } from '@domains/messaging/ChannelService';
+import { workspaceService } from '@domains/workspace/WorkspaceService';
 
 /**
  * Structure Job statuses
@@ -276,11 +278,23 @@ export class StructureService {
           );
 
           if (existing.rows.length === 0) {
-            await client.query(
+            const channelResult = await client.query(
               `INSERT INTO channels (workspace_id, name, description, type, is_private, created_by)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING id`,
               [workspaceId, channel.name, channel.description, channel.type, channel.isPrivate, userId]
             );
+            
+            // Explicitly add the user as a member of this channel
+            // This is a failsafe in case the trigger doesn't work or for private channels
+            const channelId = channelResult.rows[0].id;
+            await client.query(
+              `INSERT INTO channel_members (channel_id, user_id)
+               VALUES ($1, $2)
+               ON CONFLICT (channel_id, user_id) DO NOTHING`,
+              [channelId, userId]
+            );
+            
             createdCount++;
           }
         }
@@ -313,6 +327,12 @@ export class StructureService {
         await client.query(
           'UPDATE structure_jobs SET status = $1, updated_at = now() WHERE job_id = $2',
           ['applied', jobId]
+        );
+
+        // Update workspace to mark blueprint as approved (within transaction)
+        await client.query(
+          'UPDATE workspaces SET blueprint_approved = true, updated_at = now() WHERE id = $1',
+          [workspaceId]
         );
       });
 

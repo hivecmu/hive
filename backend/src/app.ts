@@ -8,6 +8,7 @@ import { healthRoutes } from './http/routes/health';
 import { workspaceRoutes } from './http/routes/workspaces';
 import { structureRoutes } from './http/routes/structure';
 import { messagingRoutes } from './http/routes/messaging';
+import { directMessageRoutes } from './http/routes/directMessages';
 import { fileHubRoutes } from './http/routes/filehub';
 import { setupWebSocket } from './http/websocket';
 import { logger } from './shared/utils/logger';
@@ -58,6 +59,7 @@ export async function createApp() {
   await app.register(workspaceRoutes);
   await app.register(structureRoutes);
   await app.register(messagingRoutes);
+  await app.register(directMessageRoutes);
   await app.register(fileHubRoutes);
 
   // Setup WebSocket after routes are registered

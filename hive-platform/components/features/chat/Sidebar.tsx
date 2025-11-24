@@ -9,7 +9,8 @@ import { Hash, Plus, MessageCircle, X, FolderOpen, Lock, ChevronDown, ChevronRig
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { OrganizationSwitcher } from "@/components/features/org/OrganizationSwitcher";
 import { useChannels } from "@/lib/hooks/useChannels";
-import { useMemo } from "react";
+import { CreateChannelModal } from "./CreateChannelModal";
+import { useMemo, useState } from "react";
 
 interface SidebarProps {
   onClose?: () => void;
@@ -24,6 +25,7 @@ interface SidebarProps {
 export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, currentView, selectedChannelId, onChannelSelect }: SidebarProps) {
   const { currentOrg } = useOrganization();
   const { data: channels = [], isLoading: isLoadingChannels } = useChannels(currentOrg?.id || null);
+  const [createChannelOpen, setCreateChannelOpen] = useState(false);
 
   // Categorize channels by type
   const categorizedChannels = useMemo(() => {
@@ -76,7 +78,13 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
                 <h3 className="text-muted-foreground text-sm uppercase tracking-wide">
                   {blueprintApproved ? "Core Channels" : "Channels"}
                 </h3>
-                <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-5 w-5 p-0 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  onClick={() => setCreateChannelOpen(true)}
+                  title="Create channel"
+                >
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
@@ -230,6 +238,15 @@ export function Sidebar({ onClose, onOpenHub, onOpenWizard, onCreateOrg, current
           </div>
         )}
       </div>
+      
+      {/* Create Channel Modal */}
+      {currentOrg && (
+        <CreateChannelModal
+          open={createChannelOpen}
+          onOpenChange={setCreateChannelOpen}
+          workspaceId={currentOrg.id}
+        />
+      )}
     </TooltipProvider>
   );
 }

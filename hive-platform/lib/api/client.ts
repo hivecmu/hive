@@ -164,6 +164,12 @@ export const api = {
       apiRequest<any[]>(`/v1/workspaces/${workspaceId}/channels`),
 
     get: (id: string) => apiRequest<any>(`/v1/channels/${id}`),
+
+    create: (workspaceId: string, data: { name: string; description?: string; type: string; isPrivate: boolean }) =>
+      apiRequest<any>(`/v1/workspaces/${workspaceId}/channels`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // Messages
@@ -254,6 +260,35 @@ export const api = {
 
   // Health
   health: () => apiRequest<any>('/health'),
+
+  // Direct Messages
+  directMessages: {
+    list: (workspaceId: string) =>
+      apiRequest<any[]>(`/v1/workspaces/${workspaceId}/dms`),
+
+    send: (workspaceId: string, data: { recipientId: string; content: string }) =>
+      apiRequest<any>(`/v1/workspaces/${workspaceId}/dms`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    getMessages: (dmId: string, params?: { limit?: number; before?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.limit) query.set('limit', params.limit.toString());
+      if (params?.before) query.set('before', params.before);
+
+      const queryString = query.toString();
+      return apiRequest<any[]>(
+        `/v1/dms/${dmId}/messages${queryString ? `?${queryString}` : ''}`
+      );
+    },
+
+    markAsRead: (dmId: string) =>
+      apiRequest<void>(`/v1/dms/read`, {
+        method: 'POST',
+        body: JSON.stringify({ dmId }),
+      }),
+  },
 };
 
 export { setAuthToken, getAuthToken, clearAuthToken };

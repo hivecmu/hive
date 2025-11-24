@@ -1,0 +1,15 @@
+
+> hive-platform@0.1.0 dev
+> next dev --webpack
+
+ ⚠ Port 3000 is in use by process 94170, using available port 3001 instead.
+   ▲ Next.js 16.0.0 (webpack)
+   - Local:        http://localhost:3001
+   - Network:      http://172.26.99.19:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+ ✓ Ready in 1663ms
+ GET /health 404 in 1545ms (compile: 1470ms, render: 74ms)
+[?25h

@@ -64,7 +64,7 @@ export function useMessages(channelId: string | null) {
   });
 }
 
-export function useSendMessage(channelId: string | null) {
+export function useSendMessage(channelId: string | null, threadId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -73,7 +73,7 @@ export function useSendMessage(channelId: string | null) {
         throw new Error('No channel selected');
       }
 
-      const result = await api.messages.send(channelId, { content });
+      const result = await api.messages.send(channelId, { content, threadId });
 
       if (!result.ok) {
         throw new Error(result.issues[0]?.message || 'Failed to send message');
@@ -84,6 +84,10 @@ export function useSendMessage(channelId: string | null) {
     onSuccess: () => {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+      // Also invalidate thread if this is a thread reply
+      if (threadId) {
+        queryClient.invalidateQueries({ queryKey: ['thread', threadId] });
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);

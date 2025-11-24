@@ -14,6 +14,7 @@ import { ChangeSetPreview } from "@/components/features/wizard/ChangeSetPreview"
 import { HubDashboard } from "@/components/features/file-hub/HubDashboard";
 import { OrganizationProvider, useOrganization } from "@/contexts/OrganizationContext";
 import { OrganizationWizard } from "@/components/features/org/OrganizationWizard";
+import { OnboardingFlow } from "@/components/features/onboarding/OnboardingFlow";
 import { useChannel } from "@/lib/hooks/useChannels";
 import type { Organization } from "@/types/organization";
 import { api } from "@/lib/api/client";
@@ -28,7 +29,7 @@ interface AppState {
 }
 
 function AppContent() {
-  const { currentOrg, approveBlueprint, createOrganization } = useOrganization();
+  const { currentOrg, organizations, approveBlueprint, createOrganization, refreshOrganizations, isLoading } = useOrganization();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orgWizardOpen, setOrgWizardOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -193,6 +194,18 @@ function AppContent() {
         );
     }
   };
+
+  // Show onboarding flow if user has no workspaces
+  if (!isLoading && organizations.length === 0) {
+    return (
+      <OnboardingFlow 
+        onComplete={async () => {
+          // Refresh organizations after workspace creation
+          await refreshOrganizations();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="h-screen flex bg-background">

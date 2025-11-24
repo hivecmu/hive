@@ -16,7 +16,7 @@ CREATE TABLE workflow_ledger (
 CREATE TABLE idempotency_keys (
   scope TEXT NOT NULL,
   key TEXT NOT NULL,
-  workflow_id UUID REFERENCES workflow_ledger(workflow_id),
+  workflow_id UUID REFERENCES workflow_ledger(workflow_id) ON DELETE CASCADE,
   response JSONB NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   expires_at TIMESTAMPTZ DEFAULT (now() + interval '24 hours') NOT NULL,

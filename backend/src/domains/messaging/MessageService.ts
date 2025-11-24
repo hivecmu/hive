@@ -124,9 +124,15 @@ export class MessageService {
   async listThread(threadId: UUID): Promise<Result<Message[], Issue>> {
     try {
       const result = await db.query(
-        `SELECT * FROM messages
-         WHERE thread_id = $1
-         ORDER BY created_at ASC`,
+        `SELECT 
+           m.*,
+           u.id as user_id,
+           u.name as user_name,
+           u.email as user_email
+         FROM messages m
+         LEFT JOIN users u ON m.user_id = u.id
+         WHERE m.thread_id = $1
+         ORDER BY m.created_at ASC`,
         [threadId]
       );
 
@@ -190,6 +196,30 @@ export class MessageService {
       return Ok(undefined);
     } catch (error) {
       return Err([Issues.internal('Failed to delete message')]);
+    }
+  }
+
+  /**
+   * Get thread reply counts for messages in a channel
+   */
+  async getThreadCounts(channelId: UUID): Promise<Result<{ [messageId: string]: number }, Issue>> {
+    try {
+      const result = await db.query(
+        `SELECT thread_id, COUNT(*) as count
+         FROM messages
+         WHERE channel_id = $1 AND thread_id IS NOT NULL
+         GROUP BY thread_id`,
+        [channelId]
+      );
+
+      const counts: { [messageId: string]: number } = {};
+      result.rows.forEach(row => {
+        counts[row.thread_id] = parseInt(row.count);
+      });
+
+      return Ok(counts);
+    } catch (error) {
+      return Err([Issues.internal('Failed to get thread counts')]);
     }
   }
 

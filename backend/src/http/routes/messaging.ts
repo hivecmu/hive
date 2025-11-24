@@ -24,6 +24,13 @@ const editMessageSchema = z.object({
   content: z.string().min(1).max(5000),
 });
 
+const createChannelSchema = z.object({
+  name: z.string().min(1).max(80).regex(/^[a-z0-9-]+$/),
+  description: z.string().optional(),
+  type: z.enum(['core', 'workstream', 'committee']),
+  isPrivate: z.boolean().default(false),
+});
+
 /**
  * Messaging routes
  */
@@ -58,6 +65,55 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       }
 
       return reply.code(200).send(Ok(result.value));
+    }
+  );
+
+  /**
+   * POST /v1/workspaces/:workspaceId/channels
+   * Create a new channel
+   */
+  fastify.post(
+    '/v1/workspaces/:workspaceId/channels',
+    {
+      preHandler: [authMiddleware, validateParams(workspaceIdSchema), validateBody(createChannelSchema)],
+    },
+    async (request, reply) => {
+      const { workspaceId } = request.params as any;
+      const userId = request.user!.userId;
+      const input = request.body as any;
+
+      // Check membership
+      const isMember = await workspaceService.isMember(workspaceId, userId);
+      if (!isMember) {
+        return reply.code(403).send({
+          ok: false,
+          issues: [{ code: 'FORBIDDEN', message: 'Not a member', severity: 'error' }],
+        });
+      }
+
+      // Add prefix based on type
+      let channelName = input.name;
+      if (input.type === 'workstream') {
+        channelName = `workstreams/${channelName}`;
+      } else if (input.type === 'committee') {
+        channelName = `committees/${channelName}`;
+      }
+
+      // Create channel
+      const result = await channelService.create({
+        workspaceId,
+        name: channelName,
+        description: input.description,
+        type: input.type,
+        isPrivate: input.isPrivate,
+        createdBy: userId,
+      });
+
+      if (!result.ok) {
+        return reply.code(500).send(result);
+      }
+
+      return reply.code(201).send(Ok(result.value));
     }
   );
 
@@ -110,7 +166,7 @@ export async function messagingRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /v1/channels/:id/messages
-   * Send message to channel
+   * Send a message to a channel
    */
   fastify.post(
     '/v1/channels/:id/messages',
@@ -122,6 +178,8 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       const userId = request.user!.userId;
       const { content, threadId } = request.body as any;
 
+      // TODO: Check if user is member of channel
+
       const result = await messageService.send({
         channelId: id,
         userId,
@@ -132,9 +190,6 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       if (!result.ok) {
         return reply.code(500).send(result);
       }
-
-      // Broadcast to WebSocket clients in the channel room
-      fastify.websocketServer.to(`channel:${id}`).emit('message', result.value);
 
       return reply.code(201).send(Ok(result.value));
     }
@@ -157,7 +212,7 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       const result = await messageService.edit(id, userId, content);
 
       if (!result.ok) {
-        const statusCode = result.issues[0].code === 'FORBIDDEN' ? 403 : 500;
+        const statusCode = result.issues[0].code === 'FORBIDDEN' ? 403 : 404;
         return reply.code(statusCode).send(result);
       }
 
@@ -186,6 +241,51 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       }
 
       return reply.code(204).send();
+    }
+  );
+
+  /**
+   * GET /v1/messages/:id/thread
+   * Get thread replies for a message
+   */
+  fastify.get(
+    '/v1/messages/:id/thread',
+    {
+      preHandler: [authMiddleware, validateParams(channelIdSchema)],
+    },
+    async (request, reply) => {
+      const { id } = request.params as any;
+
+      const result = await messageService.listThread(id);
+
+      if (!result.ok) {
+        return reply.code(500).send(result);
+      }
+
+      return reply.code(200).send(Ok(result.value));
+    }
+  );
+
+  /**
+   * GET /v1/channels/:id/thread-counts
+   * Get thread reply counts for messages in a channel
+   */
+  fastify.get(
+    '/v1/channels/:id/thread-counts',
+    {
+      preHandler: [authMiddleware, validateParams(channelIdSchema)],
+    },
+    async (request, reply) => {
+      const { id } = request.params as any;
+
+      // Get thread counts
+      const result = await messageService.getThreadCounts(id);
+
+      if (!result.ok) {
+        return reply.code(500).send(result);
+      }
+
+      return reply.code(200).send(Ok(result.value));
     }
   );
 }
