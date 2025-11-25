@@ -8,80 +8,48 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Separator } from "@/components/ui/separator";
 import { Hash, Users, ChevronDown, ChevronRight, Shield, Clock, Target, TrendingUp } from "lucide-react";
 
+interface Channel {
+  name: string;
+  description: string;
+  type: 'core' | 'workstream' | 'committee';
+  isPrivate: boolean;
+  suggestedMembers?: string[];
+}
+
+interface Committee {
+  name: string;
+  description: string;
+  purpose: string;
+}
+
+interface StructureProposal {
+  channels: Channel[];
+  committees: Committee[];
+  rationale: string;
+  estimatedComplexity: 'simple' | 'moderate' | 'complex';
+}
+
 interface RecommendationViewProps {
-  data: {
-    channels: number;
-    subgroups: number;
-    archiveCandidates: number;
-    channelBudgetUsed: number;
-    channelBudgetMax: number;
-  };
+  proposal: StructureProposal;
+  channelBudgetMax: number;
   onApprove: () => void;
   onBack: () => void;
   embedded?: boolean; // If true, optimize for modal display
 }
 
-const coreChannels = [
-  { name: "announcements", description: "write: officers", icon: <Shield className="h-4 w-4" /> },
-  { name: "general", description: "all", icon: <Hash className="h-4 w-4" /> },
-  { name: "random", description: "all", icon: <Hash className="h-4 w-4" /> },
-  { name: "help-desk", description: "officers triage", icon: <Hash className="h-4 w-4" /> }
-];
-
-const workstreams = [
-  { name: "workstreams/app-redesign", description: "Mobile app redesign project" },
-  { name: "workstreams/website", description: "Company website overhaul" },
-  { name: "workstreams/outreach", description: "Community outreach initiatives" }
-];
-
-const subgroups = [
-  { 
-    name: "Design Committee", 
-    members: 12,
-    channels: ["committees/design", "design-critique"]
-  },
-  { 
-    name: "Development Committee", 
-    members: 15,
-    channels: ["committees/development", "dev-standup"]
-  },
-  { 
-    name: "Marketing Committee", 
-    members: 9,
-    channels: ["committees/marketing"]
-  }
-];
-
-const rationales = [
-  {
-    icon: <Shield className="h-5 w-5 text-chart-1" />,
-    title: "Announcements is write-limited to officers to reduce noise",
-    description: "Based on your moderation capacity and community size"
-  },
-  {
-    icon: <Target className="h-5 w-5 text-chart-2" />,
-    title: "Workstreams created because you reported ≥3 concurrent initiatives", 
-    description: "Projects activity selected in core activities"
-  },
-  {
-    icon: <Users className="h-5 w-5 text-chart-4" />,
-    title: "Committees exceed size threshold; subgroups improve focus",
-    description: "Community size 25-100 with specialized roles"
-  },
-  {
-    icon: <Clock className="h-5 w-5 text-chart-3" />,
-    title: "2 channels inactive >45 days are marked for archival",
-    description: "Optimizing channel budget utilization"
-  },
-  {
-    icon: <TrendingUp className="h-5 w-5 text-chart-5" />,
-    title: "Naming rules promote consistency and discoverability",
-    description: "Following &lt;org&gt;-&lt;topic&gt;-&lt;scope&gt; pattern"
-  }
-];
-
-export function RecommendationView({ data, onApprove, onBack, embedded = false }: RecommendationViewProps) {
+export function RecommendationView({ proposal, channelBudgetMax, onApprove, onBack, embedded = false }: RecommendationViewProps) {
   const [showRationale, setShowRationale] = useState(false);
+
+  // Group channels by type
+  const coreChannels = proposal.channels.filter(ch => ch.type === 'core');
+  const workstreamChannels = proposal.channels.filter(ch => ch.type === 'workstream');
+  const committeeChannels = proposal.channels.filter(ch => ch.type === 'committee');
+
+  // Parse rationale into individual points (split by newlines or periods)
+  const rationalePoints = proposal.rationale
+    .split(/\n+/)
+    .filter(point => point.trim().length > 0)
+    .map(point => point.trim());
 
   return (
     <div className={`flex ${embedded ? 'h-full' : 'h-screen'} overflow-hidden flex-col`}>
@@ -112,20 +80,20 @@ export function RecommendationView({ data, onApprove, onBack, embedded = false }
         <div className="grid grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-medium">{data.channels}</div>
+                <div className="text-2xl font-medium">{proposal.channels.length}</div>
                 <div className="text-sm text-muted-foreground">Channels (proposed)</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-medium">{data.subgroups}</div>
-                <div className="text-sm text-muted-foreground">Subgroups</div>
+                <div className="text-2xl font-medium">{proposal.committees.length}</div>
+                <div className="text-sm text-muted-foreground">Committees</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-medium">{data.archiveCandidates}</div>
-                <div className="text-sm text-muted-foreground">Archive candidates</div>
+                <div className="text-2xl font-medium">{proposal.estimatedComplexity}</div>
+                <div className="text-sm text-muted-foreground">Complexity</div>
               </CardContent>
             </Card>
             <Card>
@@ -133,9 +101,9 @@ export function RecommendationView({ data, onApprove, onBack, embedded = false }
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Channel budget used</span>
-                    <span>{data.channelBudgetUsed}/{data.channelBudgetMax}</span>
+                    <span>{proposal.channels.length}/{channelBudgetMax}</span>
                   </div>
-                  <Progress value={(data.channelBudgetUsed / data.channelBudgetMax) * 100} />
+                  <Progress value={(proposal.channels.length / channelBudgetMax) * 100} />
                 </div>
               </CardContent>
             </Card>
@@ -146,83 +114,114 @@ export function RecommendationView({ data, onApprove, onBack, embedded = false }
       <div className="flex-1 overflow-y-auto">
         <div className={`space-y-6 ${embedded ? 'px-8 py-6' : 'p-6'}`}>
             {/* Core Channels */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Hash className="h-5 w-5" />
-                  Core Channels
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {coreChannels.map((channel) => (
-                  <div key={channel.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {channel.icon}
-                      <span className="font-medium">#{channel.name}</span>
-                    </div>
-                    <Badge variant="outline">{channel.description}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Workstreams */}
-            <Collapsible defaultOpen>
+            {coreChannels.length > 0 && (
               <Card>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardTitle className="flex items-center gap-2">
-                      <ChevronDown className="h-4 w-4" />
-                      <Hash className="h-5 w-5" />
-                      Workstreams/
-                    </CardTitle>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-3">
-                    {workstreams.map((stream) => (
-                      <div key={stream.name} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Hash className="h-4 w-4 mt-0.5" />
-                          <div>
-                            <div className="font-medium">{stream.name}</div>
-                            <div className="text-sm text-muted-foreground">{stream.description}</div>
-                          </div>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Hash className="h-5 w-5" />
+                    Core Channels
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {coreChannels.map((channel) => (
+                    <div key={channel.name} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-start gap-3 flex-1">
+                        <Hash className="h-4 w-4 mt-1" />
+                        <div className="flex-1">
+                          <div className="font-medium">#{channel.name}</div>
+                          <div className="text-sm text-muted-foreground mt-1">{channel.description}</div>
                         </div>
                       </div>
-                    ))}
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-
-            {/* Subgroups */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Subgroups (Committees)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {subgroups.map((group) => (
-                  <div key={group.name} className="p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium">{group.name}</h4>
-                      <Badge variant="secondary">{group.members} members</Badge>
+                      <div className="flex gap-2 flex-shrink-0 ml-2">
+                        {channel.isPrivate && <Badge variant="outline">Private</Badge>}
+                        {channel.suggestedMembers && channel.suggestedMembers.length > 0 && (
+                          <Badge variant="secondary">{channel.suggestedMembers.join(', ')}</Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {group.channels.map((channel) => (
-                        <div key={channel} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Hash className="h-3 w-3" />
-                          <span>{channel}</span>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Workstreams */}
+            {workstreamChannels.length > 0 && (
+              <Collapsible defaultOpen>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardTitle className="flex items-center gap-2">
+                        <ChevronDown className="h-4 w-4" />
+                        <Hash className="h-5 w-5" />
+                        Workstreams
+                      </CardTitle>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-3">
+                      {workstreamChannels.map((stream) => (
+                        <div key={stream.name} className="flex items-start justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-start gap-3 flex-1">
+                            <Hash className="h-4 w-4 mt-1" />
+                            <div className="flex-1">
+                              <div className="font-medium">#{stream.name}</div>
+                              <div className="text-sm text-muted-foreground mt-1">{stream.description}</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0 ml-2">
+                            {stream.isPrivate && <Badge variant="outline">Private</Badge>}
+                          </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            )}
+
+            {/* Committees (Subgroups) */}
+            {proposal.committees.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Committees
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {proposal.committees.map((committee) => {
+                    // Find all committee channels for this committee
+                    const relatedChannels = committeeChannels.filter(ch =>
+                      ch.name.toLowerCase().includes(committee.name.toLowerCase().replace(/\s+/g, '-'))
+                    );
+
+                    return (
+                      <div key={committee.name} className="p-4 bg-muted/50 rounded-lg">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-medium mb-1">{committee.name}</h4>
+                            <p className="text-sm text-muted-foreground">{committee.description}</p>
+                            <p className="text-xs text-muted-foreground mt-2 italic">{committee.purpose}</p>
+                          </div>
+                        </div>
+                        {relatedChannels.length > 0 && (
+                          <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                            <div className="text-xs font-medium text-muted-foreground">Related Channels:</div>
+                            {relatedChannels.map((channel) => (
+                              <div key={channel.name} className="flex items-center gap-2 text-sm">
+                                <Hash className="h-3 w-3 text-muted-foreground" />
+                                <span>#{channel.name}</span>
+                                {channel.isPrivate && <Badge variant="outline" className="text-xs">Private</Badge>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Naming Rules */}
             <Card>
@@ -280,14 +279,13 @@ export function RecommendationView({ data, onApprove, onBack, embedded = false }
           
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-4">
-              {rationales.map((rationale, index) => (
+              {rationalePoints.map((point, index) => (
                 <div key={index} className="flex gap-3">
                   <div className="flex-shrink-0 mt-0.5">
-                    {rationale.icon}
+                    <div className="w-2 h-2 rounded-full bg-chart-2 mt-2"></div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium">{rationale.title}</div>
-                    <div className="text-xs text-muted-foreground">{rationale.description}</div>
+                    <div className="text-sm">{point}</div>
                   </div>
                 </div>
               ))}

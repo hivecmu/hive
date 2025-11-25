@@ -1,5 +1,8 @@
+-- Drop the old direct_messages table from migration 001 (different schema)
+DROP TABLE IF EXISTS direct_messages CASCADE;
+
 -- Direct message threads between users
-CREATE TABLE IF NOT EXISTS direct_messages (
+CREATE TABLE direct_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   user1_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -24,6 +24,9 @@ interface OrganizationContextType {
 
   // Loading state
   isLoading: boolean;
+
+  // Error state - distinguishes API errors from empty workspaces
+  hasError: boolean;
 }
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
@@ -37,6 +40,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -45,9 +49,24 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
 
   const loadData = async () => {
     setIsLoading(true);
-    
-    // Load from real API
-    try {
+    setHasError(false);
+
+    // Verify token exists before making API calls
+    const token = localStorage.getItem('hive_auth_token');
+    if (!token) {
+      // No token means user isn't authenticated - clear cookie and redirect
+      // Use multiple methods to reliably clear the cookie
+      document.cookie = "hive_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "hive_authenticated=; path=/; max-age=0";
+      // Use small delay to ensure cookie is processed before redirect
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 50);
+      return;
+    }
+
+      // Load from real API
+      try {
         const result = await api.workspaces.list();
 
         if (result.ok) {
@@ -64,6 +83,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
             industry: ws.industry || '',
             timezone: ws.timezone || 'UTC',
             createdAt: ws.createdAt,
+            inviteCode: ws.inviteCode, // Map the invite code from backend
             // Note: channels are loaded separately via useChannels hook
             channels: [],
             workstreams: [],
@@ -99,9 +119,14 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
               setCurrentOrgId(current.id);
             }
           }
+        } else {
+          // API returned an error (but not 401, which is handled in apiRequest)
+          setHasError(true);
+          toast.error(result.issues?.[0]?.message || 'Failed to load workspaces');
         }
       } catch (error) {
         console.error('Failed to load organizations:', error);
+        setHasError(true);
         toast.error('Failed to load workspaces');
       }
 
@@ -109,43 +134,43 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
   };
 
   const switchOrganization = async (orgId: string) => {
-    try {
-      const result = await api.workspaces.get(orgId);
-      if (result.ok) {
-        localStorage.setItem('hive_current_org_id', orgId);
-        const newOrg = organizations.find(o => o.id === orgId);
-        if (newOrg) {
-          setCurrentOrg(newOrg);
-          setCurrentOrgId(orgId);
-          toast.success(`Switched to ${newOrg.name}`);
+      try {
+        const result = await api.workspaces.get(orgId);
+        if (result.ok) {
+          localStorage.setItem('hive_current_org_id', orgId);
+          const newOrg = organizations.find(o => o.id === orgId);
+          if (newOrg) {
+            setCurrentOrg(newOrg);
+            setCurrentOrgId(orgId);
+            toast.success(`Switched to ${newOrg.name}`);
+          }
+        } else {
+          toast.error('Failed to switch workspace');
         }
-      } else {
-        toast.error('Failed to switch workspace');
-      }
-    } catch (error) {
-      toast.error('Connection error');
+      } catch (error) {
+        toast.error('Connection error');
     }
   };
 
   const createOrganization = async (org: Organization) => {
-    try {
-      const result = await api.workspaces.create({
-        name: org.name,
-        slug: org.name.toLowerCase().replace(/\s+/g, '-'),
-        type: org.type,
-        emoji: org.emoji,
-        color: org.color,
-      });
+      try {
+        const result = await api.workspaces.create({
+          name: org.name,
+          slug: org.name.toLowerCase().replace(/\s+/g, '-'),
+          type: org.type,
+          emoji: org.emoji,
+          color: org.color,
+        });
 
-      if (result.ok) {
-        toast.success(`Created ${org.name}`);
-        await loadData(); // Reload all organizations
-      } else {
-        toast.error(result.issues[0]?.message || 'Failed to create workspace');
+        if (result.ok) {
+          toast.success(`Created ${org.name}`);
+          await loadData(); // Reload all organizations
+        } else {
+          toast.error(result.issues[0]?.message || 'Failed to create workspace');
+        }
+      } catch (error) {
+        toast.error('Connection error');
       }
-    } catch (error) {
-      toast.error('Connection error');
-    }
   };
 
   const updateOrganization = async (orgId: string, updates: Partial<Organization>) => {
@@ -180,7 +205,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     // The backend already updates blueprintApproved when structure is applied
     // Just refresh the organization data
     await loadData();
-    toast.success('Blueprint approved! Hub is now unlocked.');
+      toast.success('Blueprint approved! Hub is now unlocked.');
   };
 
   const deleteOrganization = async (orgId: string) => {
@@ -213,6 +238,7 @@ export function OrganizationProvider({ children }: OrganizationProviderProps) {
     deleteOrganization,
     refreshOrganizations,
     isLoading,
+    hasError,
   };
 
   return (

@@ -139,4 +139,36 @@ export async function fileHubRoutes(fastify: FastifyInstance) {
       return reply.code(200).send(Ok({ indexed: true }));
     }
   );
+
+  /**
+   * POST /v1/workspaces/:workspaceId/files/tag-all
+   * Tag and index all files in workspace
+   */
+  fastify.post(
+    '/v1/workspaces/:workspaceId/files/tag-all',
+    {
+      preHandler: [authMiddleware, validateParams(workspaceIdSchema)],
+    },
+    async (request, reply) => {
+      const { workspaceId } = request.params as any;
+      const userId = request.user!.userId;
+
+      // Check membership
+      const isMember = await workspaceService.isMember(workspaceId, userId);
+      if (!isMember) {
+        return reply.code(403).send({
+          ok: false,
+          issues: [{ code: 'FORBIDDEN', message: 'Not a member', severity: 'error' }],
+        });
+      }
+
+      const result = await fileHubService.tagAndIndexAllFiles(workspaceId);
+
+      if (!result.ok) {
+        return reply.code(500).send(result);
+      }
+
+      return reply.code(200).send(Ok(result.value));
+    }
+  );
 }

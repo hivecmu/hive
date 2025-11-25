@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,31 +13,30 @@ import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft,
   FolderOpen,
-  Link,
   Search,
-  Filter,
   Download,
   ExternalLink,
-  Copy,
   FileText,
   Image,
   File,
-  Calendar,
   Tag,
-  GitBranch,
   CheckCircle,
-  Clock,
-  AlertCircle,
   RefreshCw,
-  Settings,
   Eye,
   Upload,
-  Plus
+  Plus,
+  FileJson,
+  FileCode,
+  MoreVertical,
+  Sparkles,
+  HardDrive,
+  FileCheck,
+  Tags
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 interface HubDashboardProps {
   onBack: () => void;
@@ -47,7 +46,7 @@ interface FileItem {
   id: string;
   filename: string;
   mimeType: string;
-  size: number;
+  size: number | null;
   channelId?: string;
   messageId?: string;
   uploadedBy: string;
@@ -56,32 +55,76 @@ interface FileItem {
   indexed?: boolean;
   s3Key: string;
   metadata?: Record<string, any>;
+  // Search result fields
+  similarity?: number;
+  contentPreview?: string;
+  extractionMethod?: string;
+  matchReason?: string;
 }
 
-const getFileIcon = (mimeType: string) => {
-  if (mimeType.startsWith('image/')) {
-    return <Image className="h-5 w-5 text-chart-4" />;
-  } else if (mimeType === 'application/pdf') {
-    return <FileText className="h-5 w-5 text-destructive" />;
-  } else if (mimeType.includes('text')) {
-    return <FileText className="h-5 w-5 text-chart-1" />;
-  } else {
-    return <File className="h-5 w-5 text-foreground" />;
-  }
+// Map backend response to frontend FileItem
+const mapApiFile = (file: any): FileItem => {
+  // Ensure size is a number (PostgreSQL returns bigint as string)
+  const rawSize = file.sizeBytes ?? file.size ?? null;
+  const size = rawSize !== null ? Number(rawSize) : null;
+
+  return {
+    id: file.fileId || file.id,
+    filename: file.name || file.filename || 'Unknown',
+    mimeType: file.mimeType || 'application/octet-stream',
+    size: isNaN(size as number) ? null : size,
+    channelId: file.channelId,
+    messageId: file.messageId,
+    uploadedBy: file.uploadedBy || 'Unknown',
+    uploadedAt: file.createdAt || file.uploadedAt,
+    tags: file.tags || [],
+    indexed: file.indexed || false,
+    s3Key: file.s3Key || file.url || '',
+    // Search result fields
+    similarity: file.similarity,
+    contentPreview: file.contentPreview,
+    extractionMethod: file.extractionMethod,
+    matchReason: file.matchReason,
+  };
 };
 
-const formatFileSize = (bytes: number) => {
+const getFileIcon = (mimeType: string, filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+
+  // Check by extension first for more specific icons
+  if (ext === 'json') {
+    return <FileJson className="h-5 w-5 text-amber-500" />;
+  }
+  if (ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'jsx') {
+    return <FileCode className="h-5 w-5 text-blue-500" />;
+  }
+  if (mimeType.startsWith('image/')) {
+    return <Image className="h-5 w-5 text-purple-500" />;
+  }
+  if (mimeType === 'application/pdf') {
+    return <FileText className="h-5 w-5 text-red-500" />;
+  }
+  if (mimeType.includes('text') || ext === 'txt' || ext === 'md') {
+    return <FileText className="h-5 w-5 text-emerald-500" />;
+  }
+  return <File className="h-5 w-5 text-slate-400" />;
+};
+
+const formatFileSize = (bytes: number | null | undefined) => {
+  if (bytes === null || bytes === undefined || isNaN(bytes)) return 'Unknown size';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
   if (bytes < 1073741824) return Math.round(bytes / 1048576) + ' MB';
   return Math.round(bytes / 1073741824) + ' GB';
 };
 
-const formatTimestamp = (timestamp: string) => {
+const formatTimestamp = (timestamp: string | null | undefined) => {
+  if (!timestamp) return 'Unknown date';
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return 'Unknown date';
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  
+
   if (diff < 3600000) {
     const minutes = Math.floor(diff / 60000);
     return minutes === 0 ? 'Just now' : `${minutes} min ago`;
@@ -98,14 +141,15 @@ const formatTimestamp = (timestamp: string) => {
 
 export function HubDashboard({ onBack }: HubDashboardProps) {
   const { currentOrg } = useOrganization();
-  const queryClient = useQueryClient();
-  
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMimeType, setSelectedMimeType] = useState<string>("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [dedupeEnabled, setDedupeEnabled] = useState(true);
   const [similarityEnabled, setSimilarityEnabled] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
 
   // Fetch files from backend
   const { data: files = [], isLoading: filesLoading, refetch: refetchFiles } = useQuery({
@@ -121,7 +165,7 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
 
       const result = await api.files.search(params);
       if (result.ok) {
-        return result.value as FileItem[];
+        return (result.value as any[]).map(mapApiFile);
       } else {
         toast.error('Failed to load files');
         return [];
@@ -174,8 +218,79 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
   });
 
   const handleFileUpload = () => {
-    // TODO: Implement file upload
-    toast.info('File upload coming soon');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!currentOrg) {
+      toast.error('No workspace selected');
+      return;
+    }
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Max size is 10MB`);
+        continue;
+      }
+
+      await uploadFile(file);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    if (!currentOrg) return;
+
+    const fileKey = `${file.name}-${file.size}`;
+    setUploadingFiles(prev => new Set(prev).add(fileKey));
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/v1/upload/message?workspaceId=${currentOrg.id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('hive_auth_token')}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+
+      if (result.ok) {
+        toast.success(`${file.name} uploaded successfully`);
+        refetchFiles();
+      } else {
+        throw new Error(result.issues?.[0]?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(`Failed to upload ${file.name}`);
+    } finally {
+      setUploadingFiles(prev => {
+        const next = new Set(prev);
+        next.delete(fileKey);
+        return next;
+      });
+    }
   };
 
   const handleSyncFiles = () => {
@@ -200,117 +315,145 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
   const taggedFiles = files.filter(f => f.tags && f.tags.length > 0).length;
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
+    <div className="flex flex-col h-full bg-gradient-to-b from-muted/30 to-background">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileSelect}
+        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.csv,.json,.xml"
+      />
+
       {/* Header */}
-      <div className="bg-card text-card-foreground border-b border-border p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={onBack} className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Chat
-            </Button>
-            <div>
-              <h1 className="text-2xl flex items-center gap-2">
-                <FolderOpen className="h-6 w-6" />
-                Hub Dashboard
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className="text-xs">
-                  {totalFiles} files
-                </Badge>
-                {currentOrg?.workspace?.blueprintApproved && (
-                  <Badge variant="outline" className="text-xs">
-                    Blueprint Approved
-                  </Badge>
-                )}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="text-muted-foreground hover:text-foreground -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Back
+              </Button>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                  <FolderOpen className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold">File Hub</h1>
+                  <p className="text-xs text-muted-foreground">
+                    {totalFiles} files {currentOrg?.workspace?.blueprintApproved && "• Blueprint Approved"}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSyncFiles}
-              disabled={syncFilesMutation.isPending}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncFilesMutation.isPending ? 'animate-spin' : ''}`} />
-              Sync Files
-            </Button>
-            <Button size="sm" onClick={handleFileUpload}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload File
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncFiles}
+                disabled={syncFilesMutation.isPending}
+                className="h-9"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncFilesMutation.isPending ? 'animate-spin' : ''}`} />
+                Sync
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleFileUpload}
+                disabled={uploadingFiles.size > 0}
+                className="h-9 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+              >
+                <Upload className={`h-4 w-4 mr-2 ${uploadingFiles.size > 0 ? 'animate-pulse' : ''}`} />
+                {uploadingFiles.size > 0 ? `Uploading...` : 'Upload'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="files" className="h-full">
-          <div className="px-6 pt-4">
-            <TabsList>
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="sources">Sources</TabsTrigger>
-              <TabsTrigger value="insights">Insights</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+        <Tabs defaultValue="files" className="h-full flex flex-col">
+          <div className="px-6 pt-4 pb-2">
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="files" className="data-[state=active]:bg-background">Files</TabsTrigger>
+              <TabsTrigger value="sources" className="data-[state=active]:bg-background">Sources</TabsTrigger>
+              <TabsTrigger value="insights" className="data-[state=active]:bg-background">Insights</TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-background">Settings</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="files" className="px-6 pb-6 h-[calc(100%-5rem)]">
-            <div className="flex flex-col h-full gap-4">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Files</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{totalFiles}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Indexed</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{indexedFiles}</div>
-                    <Progress value={(indexedFiles / Math.max(totalFiles, 1)) * 100} className="mt-2" />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Tagged</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{taggedFiles}</div>
-                    <Progress value={(taggedFiles / Math.max(totalFiles, 1)) * 100} className="mt-2" />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Size</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}
-                    </div>
-                  </CardContent>
-                </Card>
+          <TabsContent value="files" className="flex-1 overflow-hidden">
+            <div className="flex flex-col h-full px-6 pb-6">
+              {/* Stats Row - Compact horizontal layout */}
+              <div className="flex gap-6 py-4 border-b border-border/50 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <HardDrive className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{totalFiles}</p>
+                    <p className="text-xs text-muted-foreground">Total Files</p>
+                  </div>
+                </div>
+
+                <div className="h-12 w-px bg-border/50" />
+
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <FileCheck className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{indexedFiles}</p>
+                    <p className="text-xs text-muted-foreground">Indexed</p>
+                  </div>
+                </div>
+
+                <div className="h-12 w-px bg-border/50" />
+
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <Tags className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{taggedFiles}</p>
+                    <p className="text-xs text-muted-foreground">Tagged</p>
+                  </div>
+                </div>
+
+                <div className="h-12 w-px bg-border/50" />
+
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <HardDrive className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{formatFileSize(files.reduce((sum, f) => sum + (f.size || 0), 0))}</p>
+                    <p className="text-xs text-muted-foreground">Total Size</p>
+                  </div>
+                </div>
               </div>
 
               {/* Search and Filter */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search files..."
+                    placeholder="Search files by name or content..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-background border-border/50 focus-visible:ring-amber-500/20"
                   />
                 </div>
                 <Select value={selectedMimeType} onValueChange={setSelectedMimeType}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[150px] bg-background border-border/50">
                     <SelectValue placeholder="File type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,95 +465,128 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon">
-                  <Filter className="h-4 w-4" />
-                </Button>
               </div>
 
               {/* Files Grid */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 -mx-1 px-1">
                 {filesLoading ? (
                   <div className="flex items-center justify-center h-64">
-                    <div className="text-muted-foreground">Loading files...</div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <RefreshCw className="h-5 w-5 animate-spin" />
+                      Loading files...
+                    </div>
                   </div>
                 ) : files.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 gap-4">
-                    <File className="h-12 w-12 text-muted-foreground" />
-                    <div className="text-muted-foreground">No files found</div>
-                    <Button onClick={handleSyncFiles} variant="outline">
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Sync Files
-                    </Button>
+                    <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center">
+                      <FolderOpen className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium">No files yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Upload files or sync from chat attachments</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleFileUpload} size="sm" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload
+                      </Button>
+                      <Button onClick={handleSyncFiles} variant="outline" size="sm">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Sync
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="space-y-2">
                     {files.map((file) => (
-                      <Card 
-                        key={file.id} 
-                        className="cursor-pointer hover:shadow-md transition-shadow"
+                      <div
+                        key={file.id}
+                        className="group flex items-center gap-4 p-3 rounded-lg border border-border/50 bg-background hover:bg-muted/30 hover:border-border transition-all cursor-pointer"
                         onClick={() => setSelectedFile(file)}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-0.5">
-                              {getFileIcon(file.mimeType)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-medium truncate">{file.filename}</h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-xs">
-                                  {formatFileSize(file.size)}
-                                </Badge>
-                                {file.indexed && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Indexed
-                                  </Badge>
-                                )}
-                              </div>
-                              {file.tags && file.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {file.tags.map(tag => (
-                                    <Badge key={tag} variant="outline" className="text-xs">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                              <div className="text-xs text-muted-foreground mt-2">
-                                {formatTimestamp(file.uploadedAt)}
-                              </div>
-                              <div className="flex gap-2 mt-2">
-                                {!file.indexed && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleIndexFile(file.id);
-                                    }}
-                                  >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    Index
-                                  </Button>
-                                )}
-                                {(!file.tags || file.tags.length === 0) && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTagFile(file.id);
-                                    }}
-                                  >
-                                    <Tag className="h-3 w-3 mr-1" />
-                                    Tag
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
+                        {/* File Icon */}
+                        <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
+                          {getFileIcon(file.mimeType, file.filename)}
+                        </div>
+
+                        {/* File Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium truncate text-sm">{file.filename}</h3>
+                            {file.indexed && (
+                              <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                            )}
+                            {/* Similarity score badge when searching */}
+                            {searchQuery && file.similarity !== undefined && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 border-0">
+                                {Math.round(file.similarity * 100)}% match
+                              </Badge>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                            <span className="text-xs text-muted-foreground">{formatTimestamp(file.uploadedAt)}</span>
+                            {file.tags && file.tags.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                {file.tags.slice(0, 3).map(tag => (
+                                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/10 text-purple-600 border-0">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {file.tags.length > 3 && (
+                                  <span className="text-[10px] text-muted-foreground">+{file.tags.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {/* Match reason when searching - shows why this file matched */}
+                          {searchQuery && file.matchReason && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {file.matchReason}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!file.indexed && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleIndexFile(file.id);
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Index
+                            </Button>
+                          )}
+                          {(!file.tags || file.tags.length === 0) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTagFile(file.id);
+                              }}
+                            >
+                              <Sparkles className="h-3.5 w-3.5 mr-1" />
+                              Tag
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -418,75 +594,60 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="sources" className="px-6 pb-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>File Sources</CardTitle>
-                <CardDescription>Connect external services to sync files</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        📁
-                      </div>
-                      <div>
-                        <div className="font-medium">Local Upload</div>
-                        <div className="text-sm text-muted-foreground">Upload files directly</div>
-                      </div>
-                    </div>
-                    <Button onClick={handleFileUpload}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Upload
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        🗂️
-                      </div>
-                      <div>
-                        <div className="font-medium">Google Drive</div>
-                        <div className="text-sm text-muted-foreground">Coming soon</div>
-                      </div>
-                    </div>
-                    <Button disabled variant="outline">
-                      Connect
-                    </Button>
-                  </div>
+          <TabsContent value="sources" className="px-6 pb-6 pt-2">
+            <div className="max-w-2xl">
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold">File Sources</h2>
+                <p className="text-sm text-muted-foreground mt-1">Connect sources to automatically sync files to your Hub</p>
+              </div>
 
-                  <div className="flex items-center justify-between p-4 border rounded-lg opacity-50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        📦
-                      </div>
-                      <div>
-                        <div className="font-medium">Dropbox</div>
-                        <div className="text-sm text-muted-foreground">Coming soon</div>
-                      </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-background hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                      <Upload className="h-5 w-5 text-white" />
                     </div>
-                    <Button disabled variant="outline">
-                      Connect
-                    </Button>
+                    <div>
+                      <div className="font-medium">Local Upload</div>
+                      <div className="text-sm text-muted-foreground">Upload files directly to the Hub</div>
+                    </div>
                   </div>
+                  <Button onClick={handleFileUpload} size="sm" className="h-9">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Upload
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-background hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+                      <FolderOpen className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Chat Attachments</div>
+                      <div className="text-sm text-muted-foreground">Sync files shared in channel messages</div>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleSyncFiles} disabled={syncFilesMutation.isPending} className="h-9">
+                    <RefreshCw className={`h-4 w-4 mr-1.5 ${syncFilesMutation.isPending ? 'animate-spin' : ''}`} />
+                    Sync
+                  </Button>
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="insights" className="px-6 pb-6">
-            <Card>
-              <CardHeader>
+                  <Card>
+                    <CardHeader>
                 <CardTitle>File Insights</CardTitle>
                 <CardDescription>Analytics and patterns in your files</CardDescription>
-              </CardHeader>
-              <CardContent>
+                    </CardHeader>
+                    <CardContent>
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-medium mb-2">File Types Distribution</h3>
-                    <div className="space-y-2">
+                        <div className="space-y-2">
                       {mimeTypes.map(type => {
                         const count = files.filter(f => f.mimeType === type).length;
                         const percentage = (count / Math.max(totalFiles, 1)) * 100;
@@ -501,7 +662,7 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                         );
                       })}
                     </div>
-                  </div>
+                          </div>
 
                   <Separator />
 
@@ -516,11 +677,11 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                           </Badge>
                         );
                       })}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="px-6 pb-6">
@@ -548,148 +709,150 @@ export function HubDashboard({ onBack }: HubDashboardProps) {
                   <div>
                     <Label htmlFor="similarity">Similarity Detection</Label>
                     <p className="text-sm text-muted-foreground">Find and group similar files</p>
-                  </div>
+                      </div>
                   <Switch
                     id="similarity"
                     checked={similarityEnabled}
                     onCheckedChange={setSimilarityEnabled}
                   />
-                </div>
+                      </div>
 
                 <Separator />
 
                 <div>
-                  <Label>Auto-tagging</Label>
+                  <Label>Auto-tagging & Indexing</Label>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Automatically tag files based on content and context
+                    Automatically tag and index all files for semantic search
                   </p>
-                  <Button 
+                  <Button
                     variant="outline"
-                    onClick={() => {
-                      const untaggedFiles = files.filter(f => !f.tags || f.tags.length === 0);
-                      if (untaggedFiles.length > 0) {
-                        toast.info(`Tagging ${untaggedFiles.length} files...`);
-                        untaggedFiles.forEach(f => handleTagFile(f.id));
+                    onClick={async () => {
+                      if (!currentOrg?.id) return;
+                      toast.info('Starting bulk tagging and indexing...');
+                      const result = await api.files.tagAll(currentOrg.id);
+                      if (result.ok) {
+                        toast.success(`Tagged ${result.value.tagged} files, indexed ${result.value.indexed} files`);
+                        refetchFiles();
                       } else {
-                        toast.info('All files are already tagged');
+                        toast.error('Failed to tag and index files');
                       }
                     }}
                   >
-                    <Tag className="h-4 w-4 mr-2" />
-                    Tag All Untagged Files
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Tag & Index All Files
                   </Button>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <Label>Indexing</Label>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Index files for semantic search
-                  </p>
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      const unindexedFiles = files.filter(f => !f.indexed);
-                      if (unindexedFiles.length > 0) {
-                        toast.info(`Indexing ${unindexedFiles.length} files...`);
-                        unindexedFiles.forEach(f => handleIndexFile(f.id));
-                      } else {
-                        toast.info('All files are already indexed');
-                      }
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Index All Files
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                      </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+          </Tabs>
+        </div>
 
       {/* File Detail Modal */}
       {selectedFile && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  {getFileIcon(selectedFile.mimeType)}
-                  <div>
-                    <CardTitle>{selectedFile.filename}</CardTitle>
-                    <CardDescription>{selectedFile.mimeType}</CardDescription>
-                  </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedFile(null)}>
+          <div className="w-full max-w-lg bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="p-6 border-b border-border/50">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-xl bg-muted/50 flex items-center justify-center flex-shrink-0">
+                  {getFileIcon(selectedFile.mimeType, selectedFile.filename)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-semibold truncate">{selectedFile.filename}</h2>
+                  <p className="text-sm text-muted-foreground">{selectedFile.mimeType}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-8 w-8 p-0 rounded-full"
                   onClick={() => setSelectedFile(null)}
                 >
-                  ✕
+                  <span className="text-lg">&times;</span>
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Size</Label>
-                  <div className="text-sm">{formatFileSize(selectedFile.size)}</div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Size</p>
+                  <p className="text-sm font-medium">{formatFileSize(selectedFile.size)}</p>
                 </div>
-                <div>
-                  <Label>Uploaded</Label>
-                  <div className="text-sm">{formatTimestamp(selectedFile.uploadedAt)}</div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded</p>
+                  <p className="text-sm font-medium">{formatTimestamp(selectedFile.uploadedAt)}</p>
                 </div>
-                <div>
-                  <Label>Uploaded By</Label>
-                  <div className="text-sm">{selectedFile.uploadedBy}</div>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <div className="flex gap-2">
-                    {selectedFile.indexed && <Badge variant="secondary">Indexed</Badge>}
-                    {selectedFile.tags && selectedFile.tags.length > 0 && <Badge variant="secondary">Tagged</Badge>}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</p>
+                  <div className="flex items-center gap-2">
+                    {selectedFile.indexed ? (
+                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Indexed
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">Not indexed</Badge>
+                    )}
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded By</p>
+                  <p className="text-sm font-medium">{selectedFile.uploadedBy || 'Unknown'}</p>
                 </div>
               </div>
 
               {selectedFile.tags && selectedFile.tags.length > 0 && (
-                <div>
-                  <Label>Tags</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags</p>
+                  <div className="flex flex-wrap gap-2">
                     {selectedFile.tags.map(tag => (
-                      <Badge key={tag} variant="outline">{tag}</Badge>
+                      <Badge key={tag} variant="secondary" className="bg-purple-500/10 text-purple-600 border-0">
+                        {tag}
+                      </Badge>
                     ))}
                   </div>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+            {/* Modal Actions */}
+            <div className="p-6 pt-0 flex gap-2">
+              <Button variant="outline" className="flex-1">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button variant="outline" className="flex-1">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open
+              </Button>
+              {!selectedFile.indexed && (
+                <Button
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+                  onClick={() => {
+                    handleIndexFile(selectedFile.id);
+                    setSelectedFile(null);
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Index
                 </Button>
-                <Button variant="outline" className="flex-1">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open
+              )}
+              {(!selectedFile.tags || selectedFile.tags.length === 0) && (
+                <Button
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+                  onClick={() => {
+                    handleTagFile(selectedFile.id);
+                    setSelectedFile(null);
+                  }}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  AI Tag
                 </Button>
-                {!selectedFile.indexed && (
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => {
-                      handleIndexFile(selectedFile.id);
-                      setSelectedFile(null);
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Index
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

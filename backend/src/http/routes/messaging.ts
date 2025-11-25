@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/auth';
 import { validateBody, validateParams } from '../middleware/validation';
 import { z } from 'zod';
 import { Ok } from '@shared/types/Result';
+import { broadcastMessage } from '../websocket';
 
 const channelIdSchema = z.object({
   id: z.string().uuid(),
@@ -190,6 +191,9 @@ export async function messagingRoutes(fastify: FastifyInstance) {
       if (!result.ok) {
         return reply.code(500).send(result);
       }
+
+      // Broadcast message to channel via WebSocket for real-time updates
+      broadcastMessage(fastify.websocketServer, id, result.value);
 
       return reply.code(201).send(Ok(result.value));
     }

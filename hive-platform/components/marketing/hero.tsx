@@ -8,11 +8,11 @@ import { ArrowRight, Sparkles } from "lucide-react";
 export function Hero() {
   return (
     <section className="relative overflow-hidden bg-background px-6 py-24 sm:py-32 lg:px-8">
-      {/* Background gradient */}
+      {/* Background gradient - using amber tones */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute left-1/2 top-0 -translate-x-1/2 blur-3xl opacity-20">
           <div
-            className="aspect-[1108/632] w-[69.25rem] bg-gradient-to-r from-[#F5DAA7] to-[#E5C997]"
+            className="aspect-[1108/632] w-[69.25rem] bg-gradient-to-r from-amber-400 to-amber-300"
             style={{
               clipPath:
                 "polygon(73.6% 51.7%, 91.7% 11.8%, 100% 46.4%, 97.4% 82.2%, 92.5% 84.9%, 75.7% 64%, 55.3% 47.5%, 46.5% 49.4%, 45% 62.9%, 50.3% 87.2%, 21.3% 64.1%, 0.1% 100%, 5.4% 51.1%, 21.4% 63.9%, 58.9% 0.2%, 73.6% 51.7%)",
@@ -64,7 +64,7 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mt-10 flex items-center justify-center gap-4"
         >
-          <Button asChild size="lg" className="gap-2">
+          <Button asChild size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
             <Link href="/signup">
               Get Started
               <ArrowRight className="h-4 w-4" />

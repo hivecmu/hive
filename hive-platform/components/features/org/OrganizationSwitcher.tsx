@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, Plus, Check } from "lucide-react";
+import { ChevronDown, Plus, Check, UserPlus, LogOut } from "lucide-react";
+import { JoinWorkspace } from "../workspace/JoinWorkspace";
+import { api } from "@/lib/api/client";
 
 interface OrganizationSwitcherProps {
   onCreateOrg?: () => void;
@@ -21,6 +23,7 @@ interface OrganizationSwitcherProps {
 export function OrganizationSwitcher({ onCreateOrg }: OrganizationSwitcherProps) {
   const { currentOrg, organizations, switchOrganization, isLoading } = useOrganization();
   const [open, setOpen] = useState(false);
+  const [joinWorkspaceOpen, setJoinWorkspaceOpen] = useState(false);
 
   if (isLoading || !currentOrg) {
     return (
@@ -43,6 +46,16 @@ export function OrganizationSwitcher({ onCreateOrg }: OrganizationSwitcherProps)
     if (onCreateOrg) {
       onCreateOrg();
     }
+  };
+
+  const handleJoinWorkspace = () => {
+    setOpen(false);
+    setJoinWorkspaceOpen(true);
+  };
+
+  const handleSignOut = () => {
+    setOpen(false);
+    api.auth.logout();
   };
 
   // Count unread messages across current org
@@ -141,13 +154,29 @@ export function OrganizationSwitcher({ onCreateOrg }: OrganizationSwitcherProps)
         })}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={handleCreateOrg}
-          className="cursor-pointer text-chart-1 focus:text-chart-1"
+          onClick={handleJoinWorkspace}
+          className="cursor-pointer"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Organization
+          <UserPlus className="h-4 w-4 mr-2 text-primary" />
+          <span className="text-primary font-medium">Join Workspace</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleCreateOrg}
+          className="cursor-pointer"
+        >
+          <Plus className="h-4 w-4 mr-2 text-primary" />
+          <span className="text-primary font-medium">Create Workspace</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
+      <JoinWorkspace open={joinWorkspaceOpen} onOpenChange={setJoinWorkspaceOpen} />
     </DropdownMenu>
   );
 }

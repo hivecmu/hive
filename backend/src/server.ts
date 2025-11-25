@@ -1,5 +1,6 @@
 import { createApp } from './app';
 import { db } from './infra/db/client';
+import { runMigrations } from './infra/db/migrate';
 import config from './config';
 import { logger } from './shared/utils/logger';
 
@@ -12,6 +13,11 @@ async function start() {
     logger.info('Connecting to database...');
     await db.connect();
     logger.info('Database connected');
+
+    // Run migrations automatically on startup
+    logger.info('Running database migrations...');
+    await runMigrations();
+    logger.info('Migrations complete');
 
     // Create Fastify app
     const app = await createApp();

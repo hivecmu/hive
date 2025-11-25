@@ -1,7 +1,8 @@
 import { db } from '@infra/db/client';
 import { Result, Ok, Err, Issues, Issue } from '@shared/types/Result';
 import type { UUID } from '@shared/types/common';
-import { channelService } from '@domains/messaging/ChannelService';
+// Channel service available for workspace-channel operations
+import { channelService as _channelService } from '@domains/messaging/ChannelService';
 
 /**
  * Workspace entity
@@ -20,6 +21,7 @@ export interface Workspace {
   ownerId: UUID;
   settings: Record<string, any>;
   blueprintApproved: boolean;
+  inviteCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +61,18 @@ export interface UpdateWorkspaceInput {
  */
 export class WorkspaceService {
   /**
+   * Generate a unique invite code
+   */
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  /**
    * Create a new workspace
    */
   async create(input: CreateWorkspaceInput): Promise<Result<Workspace, Issue>> {
@@ -73,13 +87,30 @@ export class WorkspaceService {
         return Err([Issues.conflict('Workspace slug already exists')]);
       }
 
+      // Generate unique invite code
+      let inviteCode = this.generateInviteCode();
+      let codeIsUnique = false;
+      
+      // Ensure invite code is unique
+      while (!codeIsUnique) {
+        const existingCode = await db.query(
+          'SELECT id FROM workspaces WHERE invite_code = $1',
+          [inviteCode]
+        );
+        if (existingCode.rows.length === 0) {
+          codeIsUnique = true;
+        } else {
+          inviteCode = this.generateInviteCode();
+        }
+      }
+
       // Create workspace and add owner as admin in a transaction
       const result = await db.transaction(async (client) => {
         // Insert workspace
         const workspaceResult = await client.query(
           `INSERT INTO workspaces (
-            name, slug, emoji, color, type, description, industry, timezone, owner_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            name, slug, emoji, color, type, description, industry, timezone, owner_id, invite_code
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           RETURNING *`,
           [
             input.name,
@@ -91,6 +122,7 @@ export class WorkspaceService {
             input.industry || null,
             input.timezone || 'UTC',
             input.ownerId,
+            inviteCode,
           ]
         );
 
@@ -304,6 +336,117 @@ export class WorkspaceService {
   }
 
   /**
+   * Get workspace by invite code
+   */
+  async getByInviteCode(inviteCode: string): Promise<Result<Workspace, Issue>> {
+    try {
+      const result = await db.query(
+        'SELECT * FROM workspaces WHERE invite_code = $1',
+        [inviteCode.toUpperCase()]
+      );
+
+      if (result.rows.length === 0) {
+        return Err([Issues.notFound('Invalid invite code')]);
+      }
+
+      return Ok(this.rowToWorkspace(result.rows[0]));
+    } catch (error) {
+      return Err([Issues.internal('Failed to get workspace by invite code')]);
+    }
+  }
+
+  /**
+   * Join workspace using invite code
+   */
+  async joinByInviteCode(
+    inviteCode: string,
+    userId: UUID,
+    invitedBy?: UUID
+  ): Promise<Result<Workspace, Issue>> {
+    try {
+      // Get workspace by invite code
+      const workspaceResult = await this.getByInviteCode(inviteCode);
+      if (!workspaceResult.ok) {
+        return workspaceResult;
+      }
+
+      const workspace = workspaceResult.value;
+
+      // Check if user is already a member
+      const isMember = await this.isMember(workspace.id, userId);
+      if (isMember) {
+        return Err([Issues.conflict('You are already a member of this workspace')]);
+      }
+
+      // Add user as a member
+      await db.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role, invited_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [workspace.id, userId, 'member', invitedBy || null]
+      );
+
+      // Update member count
+      await db.query(
+        `UPDATE workspaces 
+         SET member_count = (
+           SELECT COUNT(*) FROM workspace_members 
+           WHERE workspace_id = $1
+         )
+         WHERE id = $1`,
+        [workspace.id]
+      );
+
+      // Add user to all non-private channels (database trigger should handle this too)
+      await db.query(
+        `INSERT INTO channel_members (channel_id, user_id)
+         SELECT c.id, $2
+         FROM channels c
+         WHERE c.workspace_id = $1 AND c.is_private = false
+         ON CONFLICT (channel_id, user_id) DO NOTHING`,
+        [workspace.id, userId]
+      );
+
+      return Ok(workspace);
+    } catch (error) {
+      return Err([Issues.internal('Failed to join workspace')]);
+    }
+  }
+
+  /**
+   * Regenerate invite code for workspace
+   */
+  async regenerateInviteCode(workspaceId: UUID): Promise<Result<string, Issue>> {
+    try {
+      let inviteCode = this.generateInviteCode();
+      let codeIsUnique = false;
+      
+      // Ensure invite code is unique
+      while (!codeIsUnique) {
+        const existingCode = await db.query(
+          'SELECT id FROM workspaces WHERE invite_code = $1 AND id != $2',
+          [inviteCode, workspaceId]
+        );
+        if (existingCode.rows.length === 0) {
+          codeIsUnique = true;
+        } else {
+          inviteCode = this.generateInviteCode();
+        }
+      }
+
+      // Update workspace with new invite code
+      await db.query(
+        'UPDATE workspaces SET invite_code = $1 WHERE id = $2',
+        [inviteCode, workspaceId]
+      );
+
+      return Ok(inviteCode);
+    } catch (error) {
+      return Err([Issues.internal('Failed to regenerate invite code')]);
+    }
+  }
+
+  /**
    * Convert database row to Workspace entity
    */
   private rowToWorkspace(row: any): Workspace {
@@ -321,6 +464,7 @@ export class WorkspaceService {
       ownerId: row.owner_id,
       settings: row.settings || {},
       blueprintApproved: row.blueprint_approved || false,
+      inviteCode: row.invite_code,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };

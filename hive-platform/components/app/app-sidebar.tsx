@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { api } from "@/lib/api/client";
 
 const menuItems = [
   {
@@ -42,12 +42,9 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
 
   const handleLogout = () => {
-    localStorage.removeItem("hive_auth");
-    document.cookie = "hive_authenticated=; path=/; max-age=0";
-    router.push("/login");
+    api.auth.logout();
   };
 
   return (

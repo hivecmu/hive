@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Rocket, Building2, Users, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Rocket, Building2, Users, ArrowRight, Sparkles, CheckCircle2, LogOut } from "lucide-react";
 import { api } from "@/lib/api/client";
 
 interface OnboardingFlowProps {
@@ -37,7 +37,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         name: workspaceName,
         slug: workspaceName.toLowerCase().replace(/\s+/g, '-'),
         type: workspaceType,
-        description: workspaceDescription,
         emoji: workspaceType === "enterprise" ? "🏢" : workspaceType === "startup" ? "🚀" : "👥",
         color: workspaceType === "enterprise" ? "#2563eb" : workspaceType === "startup" ? "#dc2626" : "#16a34a",
       });
@@ -73,6 +72,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (step > 1) {
       setStep(step - 1);
     }
+  };
+
+  const handleLogout = () => {
+    api.auth.logout();
   };
   
   const renderStep = () => {
@@ -266,9 +269,20 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">
-              Step {step} of 3
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                Step {step} of 3
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4 mr-1" />
+                Logout
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">

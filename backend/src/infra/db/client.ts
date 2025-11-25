@@ -46,6 +46,10 @@ class DatabaseClient {
       max: parseInt(process.env.DATABASE_POOL_MAX || '10'),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
+      // Allow RDS SSL connections (self-signed Amazon CA)
+      ssl: databaseUrl.includes('rds.amazonaws.com') ? {
+        rejectUnauthorized: false,
+      } : undefined,
     });
 
     // Test connection
@@ -57,8 +61,11 @@ class DatabaseClient {
       logger.info('Database connected successfully', {
         timestamp: result.rows[0].now,
       });
-    } catch (error) {
-      logger.error('Database connection failed', { error });
+    } catch (error: any) {
+      logger.error('Database connection failed', {
+        message: error?.message,
+        code: error?.code,
+      });
       throw error;
     }
 
