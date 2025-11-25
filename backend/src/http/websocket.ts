@@ -21,6 +21,8 @@ export async function setupWebSocket(fastify: FastifyInstance) {
       origin: config.corsOrigin,
       credentials: true,
     },
+    // Use /api/socket.io path to work with ALB routing
+    path: '/api/socket.io',
   });
 
   // Authentication middleware for WebSocket

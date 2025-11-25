@@ -10,6 +10,7 @@ import { structureRoutes } from './http/routes/structure';
 import { messagingRoutes } from './http/routes/messaging';
 import { directMessageRoutes } from './http/routes/directMessages';
 import { fileHubRoutes } from './http/routes/filehub';
+import { uploadRoutes } from './http/routes/upload';
 import { setupWebSocket } from './http/websocket';
 import { logger } from './shared/utils/logger';
 
@@ -53,14 +54,19 @@ export async function createApp() {
   // Register error handler
   app.setErrorHandler(errorHandler);
 
-  // Register routes
+  // Register health routes at root level (for ALB health checks)
   await app.register(healthRoutes);
-  await app.register(authRoutes);
-  await app.register(workspaceRoutes);
-  await app.register(structureRoutes);
-  await app.register(messagingRoutes);
-  await app.register(directMessageRoutes);
-  await app.register(fileHubRoutes);
+
+  // Register API routes under /api prefix (ALB routes /api/* to backend)
+  await app.register(async function apiRoutes(api) {
+    await api.register(authRoutes);
+    await api.register(workspaceRoutes);
+    await api.register(structureRoutes);
+    await api.register(messagingRoutes);
+    await api.register(directMessageRoutes);
+    await api.register(fileHubRoutes);
+    await api.register(uploadRoutes);
+  }, { prefix: '/api' });
 
   // Setup WebSocket after routes are registered
   await setupWebSocket(app);

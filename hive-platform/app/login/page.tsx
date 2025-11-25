@@ -87,7 +87,7 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <Link
                     href="#"
-                    className="text-sm text-primary hover:underline"
+                    className="text-sm text-amber-700 hover:text-amber-800 hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -108,7 +108,7 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link href="/signup" className="text-primary hover:underline font-medium">
+              <Link href="/signup" className="text-amber-700 hover:text-amber-800 hover:underline font-medium">
                 Sign up
               </Link>
             </div>
@@ -116,7 +116,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo: demo@example.com / demo123 or user@example.com / user123
+          Demo: alice@example.com / demo123
         </p>
       </motion.div>
     </div>

@@ -4,6 +4,11 @@ import { authMiddleware } from '../middleware/auth';
 import { validateBody, validateParams } from '../middleware/validation';
 import { createWorkspaceSchema, updateWorkspaceSchema, workspaceIdSchema } from '../schemas/workspace';
 import { Ok } from '@shared/types/Result';
+import { z } from 'zod';
+
+const inviteCodeSchema = z.object({
+  inviteCode: z.string().min(1).max(12),
+});
 
 /**
  * Workspace routes
@@ -155,6 +160,94 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
       }
 
       return reply.code(204).send();
+    }
+  );
+
+  /**
+   * POST /v1/workspaces/join
+   * Join workspace using invite code
+   */
+  fastify.post(
+    '/v1/workspaces/join',
+    {
+      preHandler: [authMiddleware, validateBody(inviteCodeSchema)],
+    },
+    async (request, reply) => {
+      const userId = request.user!.userId;
+      const { inviteCode } = request.body as any;
+
+      const result = await workspaceService.joinByInviteCode(inviteCode, userId);
+
+      if (!result.ok) {
+        const statusCode = result.issues[0].code === 'NOT_FOUND' ? 404 : 
+                          result.issues[0].code === 'CONFLICT' ? 409 : 500;
+        return reply.code(statusCode).send(result);
+      }
+
+      return reply.code(200).send(Ok(result.value));
+    }
+  );
+
+  /**
+   * GET /v1/workspaces/invite/:inviteCode
+   * Get workspace preview by invite code (doesn't require membership)
+   */
+  fastify.get(
+    '/v1/workspaces/invite/:inviteCode',
+    {
+      preHandler: [authMiddleware],
+    },
+    async (request, reply) => {
+      const { inviteCode } = request.params as any;
+
+      const result = await workspaceService.getByInviteCode(inviteCode);
+
+      if (!result.ok) {
+        return reply.code(404).send(result);
+      }
+
+      // Return limited workspace info for preview
+      const workspace = result.value;
+      return reply.code(200).send(Ok({
+        id: workspace.id,
+        name: workspace.name,
+        emoji: workspace.emoji,
+        description: workspace.description,
+        memberCount: workspace.memberCount,
+        type: workspace.type,
+      }));
+    }
+  );
+
+  /**
+   * POST /v1/workspaces/:id/regenerate-invite
+   * Regenerate invite code for workspace (admin only)
+   */
+  fastify.post(
+    '/v1/workspaces/:id/regenerate-invite',
+    {
+      preHandler: [authMiddleware, validateParams(workspaceIdSchema)],
+    },
+    async (request, reply) => {
+      const { id } = request.params as any;
+      const userId = request.user!.userId;
+
+      // Check if user is admin
+      const role = await workspaceService.getUserRole(id, userId);
+      if (role !== 'admin') {
+        return reply.code(403).send({
+          ok: false,
+          issues: [{ code: 'FORBIDDEN', message: 'Only admins can regenerate invite codes', severity: 'error' }],
+        });
+      }
+
+      const result = await workspaceService.regenerateInviteCode(id);
+
+      if (!result.ok) {
+        return reply.code(500).send(result);
+      }
+
+      return reply.code(200).send(Ok({ inviteCode: result.value }));
     }
   );
 }

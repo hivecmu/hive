@@ -4,8 +4,9 @@ import type { StructureContext, StructureProposal } from '@core/ai/prompts/struc
 import { Result, Ok, Err, Issues, Issue } from '@shared/types/Result';
 import type { UUID } from '@shared/types/common';
 import { logger } from '@shared/utils/logger';
-import { channelService } from '@domains/messaging/ChannelService';
-import { workspaceService } from '@domains/workspace/WorkspaceService';
+// These services are available for future use in structure operations
+import { channelService as _channelService } from '@domains/messaging/ChannelService';
+import { workspaceService as _workspaceService } from '@domains/workspace/WorkspaceService';
 
 /**
  * Structure Job statuses

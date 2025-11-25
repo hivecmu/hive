@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { X, Send, MessageSquare } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
+import { RichContent } from "./RichContent";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -164,7 +165,9 @@ export function ThreadView({ parentMessage, onClose }: ThreadViewProps) {
                 {formatTimestamp(parentMessage.createdAt)}
               </span>
             </div>
-            <div className="text-sm break-words">{parentMessage.content}</div>
+            <div className="text-sm break-words">
+              <RichContent content={parentMessage.content} />
+            </div>
           </div>
         </div>
       </div>
@@ -197,7 +200,9 @@ export function ThreadView({ parentMessage, onClose }: ThreadViewProps) {
                       {formatTimestamp(message.createdAt)}
                     </span>
                   </div>
-                  <div className="text-sm break-words">{message.content}</div>
+                  <div className="text-sm break-words">
+                    <RichContent content={message.content} />
+                  </div>
                 </div>
               </div>
             ))

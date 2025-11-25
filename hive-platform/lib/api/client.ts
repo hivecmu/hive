@@ -42,6 +42,33 @@ function clearAuthToken() {
 }
 
 /**
+ * Clear authentication cookie reliably
+ * Uses multiple methods to ensure cookie is cleared across all browsers
+ */
+function clearAuthCookie() {
+  if (typeof document === 'undefined') return;
+  // Use expires in the past - most reliable method
+  document.cookie = "hive_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  // Also use max-age=0 as backup
+  document.cookie = "hive_authenticated=; path=/; max-age=0";
+}
+
+/**
+ * Clear all authentication state
+ */
+function clearAllAuthState() {
+  clearAuthToken();
+  clearAuthCookie();
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('hive_current_org_id');
+    localStorage.removeItem('hive_auth');
+  }
+}
+
+// Flag to prevent multiple 401 redirects
+let isRedirectingToLogin = false;
+
+/**
  * Make authenticated API request
  */
 async function apiRequest<T>(
@@ -64,6 +91,33 @@ async function apiRequest<T>(
       ...options,
       headers,
     });
+
+    // Handle 401 Unauthorized - token expired or invalid
+    // Skip 401 handling for auth endpoints (login/register don't need auth)
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      // Prevent multiple redirects
+      if (!isRedirectingToLogin) {
+        isRedirectingToLogin = true;
+        // Clear all auth state
+        clearAllAuthState();
+        // Use a small delay to ensure cookie is cleared before redirect
+        setTimeout(() => {
+          window.location.href = '/login';
+          // Reset flag after a longer delay to allow page to load
+          setTimeout(() => {
+            isRedirectingToLogin = false;
+          }, 1000);
+        }, 50);
+      }
+      return {
+        ok: false,
+        issues: [{
+          code: 'UNAUTHORIZED',
+          message: 'Session expired. Please log in again.',
+          severity: 'error',
+        }],
+      };
+    }
 
     // Handle 204 No Content
     if (response.status === 204) {
@@ -96,33 +150,77 @@ export const api = {
   // Auth
   auth: {
     register: async (data: { email: string; password: string; name: string }) => {
+      // Reset redirect flag on register attempt
+      isRedirectingToLogin = false;
+      
       const result = await apiRequest<{ user: any; token: string }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(data),
       });
 
-      if (result.ok) {
-        setAuthToken(result.value.token);
+      if (result.ok && result.value?.token) {
+        // Validate token exists and looks like a JWT before storing
+        const token = result.value.token;
+        if (typeof token === 'string' && token.length > 0 && token.includes('.')) {
+          setAuthToken(token);
+          console.log('Auth token stored successfully');
+        } else {
+          console.error('Invalid token received from register:', token);
+          return {
+            ok: false,
+            issues: [{
+              code: 'INVALID_TOKEN',
+              message: 'Invalid authentication token received',
+              severity: 'error',
+            }],
+          };
+        }
       }
 
       return result;
     },
 
     login: async (data: { email: string; password: string }) => {
+      // Reset redirect flag on login attempt
+      isRedirectingToLogin = false;
+      
       const result = await apiRequest<{ user: any; token: string }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(data),
       });
 
-      if (result.ok) {
-        setAuthToken(result.value.token);
+      if (result.ok && result.value?.token) {
+        // Validate token exists and looks like a JWT before storing
+        const token = result.value.token;
+        if (typeof token === 'string' && token.length > 0 && token.includes('.')) {
+          setAuthToken(token);
+          console.log('Auth token stored successfully');
+        } else {
+          console.error('Invalid token received from login:', token);
+          return {
+            ok: false,
+            issues: [{
+              code: 'INVALID_TOKEN',
+              message: 'Invalid authentication token received',
+              severity: 'error',
+            }],
+          };
+        }
       }
 
       return result;
     },
 
     logout: () => {
-      clearAuthToken();
+      // Reset redirect flag
+      isRedirectingToLogin = false;
+      // Clear all auth state
+      clearAllAuthState();
+      // Use a small delay to ensure cookie is cleared before redirect
+      // This prevents the redirect loop with middleware
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 50);
     },
 
     me: () => apiRequest<any>('/auth/me'),
@@ -155,6 +253,12 @@ export const api = {
     delete: (id: string) =>
       apiRequest<void>(`/v1/workspaces/${id}`, {
         method: 'DELETE',
+      }),
+
+    joinByInviteCode: (inviteCode: string) =>
+      apiRequest<any>('/v1/workspaces/join', {
+        method: 'POST',
+        body: JSON.stringify({ inviteCode }),
       }),
   },
 
@@ -226,6 +330,7 @@ export const api = {
         `/v1/structure/proposals/${jobId}/approve`,
         {
           method: 'POST',
+          body: JSON.stringify({}),
         }
       ),
   },
@@ -245,16 +350,25 @@ export const api = {
     tag: (fileId: string) =>
       apiRequest<any>(`/v1/files/${fileId}/tag`, {
         method: 'POST',
+        body: JSON.stringify({}),
       }),
 
     index: (fileId: string) =>
       apiRequest<{ indexed: boolean }>(`/v1/files/${fileId}/index`, {
         method: 'POST',
+        body: JSON.stringify({}),
       }),
 
     createSyncJob: (workspaceId: string) =>
       apiRequest<any>(`/v1/workspaces/${workspaceId}/files/sync`, {
         method: 'POST',
+        body: JSON.stringify({}),
+      }),
+
+    tagAll: (workspaceId: string) =>
+      apiRequest<{ tagged: number; indexed: number }>(`/v1/workspaces/${workspaceId}/files/tag-all`, {
+        method: 'POST',
+        body: JSON.stringify({}),
       }),
   },
 
@@ -291,4 +405,4 @@ export const api = {
   },
 };
 
-export { setAuthToken, getAuthToken, clearAuthToken };
+export { setAuthToken, getAuthToken, clearAuthToken, clearAuthCookie, clearAllAuthState };

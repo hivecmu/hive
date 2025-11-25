@@ -45,9 +45,9 @@
 
 :root {
   --radius: 0.625rem;
-  /* #F5DAA7 accent color - warm gold/beige */
-  --accent: #F5DAA7;
-  --accent-hover: #E5C997;
+  /* Accent for hover/focus states - subtle gray, not brand color */
+  --accent: #F5F5F5;
+  --accent-hover: #E5E5E5;
   --accent-foreground: #1A1A1A;
 
   /* Core colors - clean and minimal */
@@ -58,9 +58,15 @@
   --popover: #FFFFFF;
   --popover-foreground: #1A1A1A;
 
-  /* Primary uses accent */
-  --primary: #F5DAA7;
-  --primary-foreground: #1A1A1A;
+  /* Primary - amber for AA compliance (4.35:1 contrast) */
+  --primary: #D97706;
+  --primary-foreground: #FFFFFF;
+
+  /* Primary light - for decorative use only */
+  --primary-light: #F5DAA7;
+
+  /* Link color - darker for AA compliance (5.92:1 contrast) */
+  --link: #B45309;
 
   /* Muted and secondary - subtle grays */
   --secondary: #F5F5F5;
@@ -71,14 +77,14 @@
   /* Borders and inputs */
   --border: #E5E5E5;
   --input: #E5E5E5;
-  --ring: #F5DAA7;
+  --ring: #D97706;
 
   /* Destructive */
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
   /* Charts */
-  --chart-1: #F5DAA7;
+  --chart-1: #D97706;
   --chart-2: #A8B8D8;
   --chart-3: #98D8C8;
   --chart-4: #F7B1AB;
@@ -87,18 +93,18 @@
   /* Sidebar */
   --sidebar: #FAFAFA;
   --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #F5DAA7;
-  --sidebar-primary-foreground: #1A1A1A;
+  --sidebar-primary: #D97706;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F0F0F0;
   --sidebar-accent-foreground: #1A1A1A;
   --sidebar-border: #E5E5E5;
-  --sidebar-ring: #F5DAA7;
+  --sidebar-ring: #D97706;
 }
 
 .dark {
-  /* Accent remains consistent in dark mode */
-  --accent: #F5DAA7;
-  --accent-hover: #E5C997;
+  /* Amber accent - brighter in dark mode for visibility */
+  --accent: #FBBF24;
+  --accent-hover: #F59E0B;
   --accent-foreground: #1A1A1A;
 
   /* Warmer, softer dark backgrounds - not harsh black */
@@ -109,9 +115,15 @@
   --popover: #252529;
   --popover-foreground: #E8E8E8;
 
-  /* Primary uses accent */
-  --primary: #F5DAA7;
-  --primary-foreground: #1A1A1A;
+  /* Primary - amber, slightly brighter in dark mode */
+  --primary: #D97706;
+  --primary-foreground: #FFFFFF;
+
+  /* Primary light - for decorative use */
+  --primary-light: rgba(245, 218, 167, 0.2);
+
+  /* Link color - lighter amber for dark mode readability */
+  --link: #FBBF24;
 
   /* Muted and secondary - warmer grays */
   --secondary: #2D2D32;
@@ -122,14 +134,14 @@
   /* Borders and inputs - subtle, not harsh */
   --border: #3A3A3F;
   --input: #2D2D32;
-  --ring: #F5DAA7;
+  --ring: #D97706;
 
   /* Destructive */
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
   /* Charts - slightly muted in dark mode */
-  --chart-1: #F5DAA7;
+  --chart-1: #FBBF24;
   --chart-2: #8898B8;
   --chart-3: #78B8A8;
   --chart-4: #D7918B;
@@ -138,12 +150,12 @@
   /* Sidebar - warmer dark tone */
   --sidebar: #1F1F23;
   --sidebar-foreground: #E8E8E8;
-  --sidebar-primary: #F5DAA7;
-  --sidebar-primary-foreground: #1A1A1A;
+  --sidebar-primary: #D97706;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #2D2D32;
   --sidebar-accent-foreground: #E8E8E8;
   --sidebar-border: #3A3A3F;
-  --sidebar-ring: #F5DAA7;
+  --sidebar-ring: #D97706;
 }
 
 @layer base {

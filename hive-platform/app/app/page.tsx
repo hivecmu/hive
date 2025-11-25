@@ -15,29 +15,49 @@ import { HubDashboard } from "@/components/features/file-hub/HubDashboard";
 import { OrganizationProvider, useOrganization } from "@/contexts/OrganizationContext";
 import { OrganizationWizard } from "@/components/features/org/OrganizationWizard";
 import { OnboardingFlow } from "@/components/features/onboarding/OnboardingFlow";
-import { useChannel } from "@/lib/hooks/useChannels";
+import { useChannel, useChannels } from "@/lib/hooks/useChannels";
 import type { Organization } from "@/types/organization";
 import { api } from "@/lib/api/client";
 
 type AppView = 'chat' | 'wizard' | 'recommendation' | 'changeset' | 'hub' | 'org-wizard';
 
+interface StructureProposal {
+  channels: Array<{
+    name: string;
+    description: string;
+    type: 'core' | 'workstream' | 'committee';
+    isPrivate: boolean;
+    suggestedMembers?: string[];
+  }>;
+  committees: Array<{
+    name: string;
+    description: string;
+    purpose: string;
+  }>;
+  rationale: string;
+  estimatedComplexity: 'simple' | 'moderate' | 'complex';
+}
+
 interface AppState {
   currentView: AppView;
   wizardData: any;
-  recommendationData: any;
+  proposal: StructureProposal | null;
+  channelBudgetMax: number;
   jobId: string | null;
 }
 
 function AppContent() {
-  const { currentOrg, organizations, approveBlueprint, createOrganization, refreshOrganizations, isLoading } = useOrganization();
+  const { currentOrg, organizations, approveBlueprint, createOrganization, refreshOrganizations, isLoading, hasError } = useOrganization();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orgWizardOpen, setOrgWizardOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const { data: selectedChannel } = useChannel(selectedChannelId);
+  const { data: existingChannels = [] } = useChannels(currentOrg?.id || null);
   const [appState, setAppState] = useState<AppState>({
     currentView: 'chat',
     wizardData: null,
-    recommendationData: null,
+    proposal: null,
+    channelBudgetMax: 10,
     jobId: null,
   });
 
@@ -72,13 +92,8 @@ function AppContent() {
         currentView: 'recommendation',
         wizardData: data,
         jobId: result.value.job.jobId,
-        recommendationData: {
-          channels: proposal.channels.length,
-          subgroups: proposal.committees.length,
-          archiveCandidates: 0,
-          channelBudgetUsed: proposal.channels.length,
-          channelBudgetMax: data.channelBudget[0],
-        }
+        proposal: proposal,
+        channelBudgetMax: data.channelBudget[0],
       }));
 
       toast.success("AI recommendations generated!");
@@ -96,7 +111,7 @@ function AppContent() {
   };
 
   const handleFinalApproval = async () => {
-    if (!currentOrg || !appState.jobId) {
+    if (!currentOrg || !appState.jobId || !appState.proposal) {
       toast.error("Missing workspace or job information");
       return;
     }
@@ -111,8 +126,14 @@ function AppContent() {
         return;
       }
 
-      // Update local state
-      approveBlueprint(currentOrg.id, appState.recommendationData);
+      // Update local state with summary data for backward compatibility
+      approveBlueprint(currentOrg.id, {
+        channels: appState.proposal.channels.length,
+        subgroups: appState.proposal.committees.length,
+        archiveCandidates: 0,
+        channelBudgetUsed: appState.proposal.channels.length,
+        channelBudgetMax: appState.channelBudgetMax,
+      });
 
       toast.success(`Successfully created ${result.value.channelsCreated} channels!`);
 
@@ -121,7 +142,8 @@ function AppContent() {
         ...prev,
         currentView: 'chat',
         wizardData: null,
-        recommendationData: null,
+        proposal: null,
+        channelBudgetMax: 10,
         jobId: null,
       }));
     } catch (error) {
@@ -165,20 +187,23 @@ function AppContent() {
           />
         );
       case 'recommendation':
-        return (
+        return appState.proposal ? (
           <RecommendationView
-            data={appState.recommendationData}
+            proposal={appState.proposal}
+            channelBudgetMax={appState.channelBudgetMax}
             onApprove={handleApproveBlueprint}
             onBack={handleBackToChat}
           />
-        );
+        ) : null;
       case 'changeset':
-        return (
+        return appState.proposal ? (
           <ChangeSetPreview
+            proposedChannels={appState.proposal.channels}
+            existingChannels={existingChannels}
             onApprove={handleFinalApproval}
             onBack={() => setAppState(prev => ({ ...prev, currentView: 'recommendation' }))}
           />
-        );
+        ) : null;
       case 'hub':
         return <HubDashboard onBack={handleBackToChat} />;
       default:
@@ -195,10 +220,11 @@ function AppContent() {
     }
   };
 
-  // Show onboarding flow if user has no workspaces
-  if (!isLoading && organizations.length === 0) {
+  // Show onboarding flow only if user has no workspaces AND no API errors
+  // This prevents showing onboarding when the API call failed (vs truly having no workspaces)
+  if (!isLoading && !hasError && organizations.length === 0) {
     return (
-      <OnboardingFlow 
+      <OnboardingFlow
         onComplete={async () => {
           // Refresh organizations after workspace creation
           await refreshOrganizations();
@@ -208,7 +234,7 @@ function AppContent() {
   }
 
   return (
-    <div className="h-screen flex bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -220,7 +246,7 @@ function AppContent() {
       {/* Sidebar */}
       <div className={`${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } fixed lg:relative lg:translate-x-0 z-50 lg:z-auto transition-transform duration-200 ease-in-out lg:transition-none`}>
+      } fixed lg:relative lg:translate-x-0 z-50 lg:z-auto transition-transform duration-200 ease-in-out lg:transition-none h-full flex-shrink-0 overflow-hidden`}>
         <Sidebar
           onClose={() => setSidebarOpen(false)}
           onOpenHub={handleOpenHub}
@@ -233,7 +259,7 @@ function AppContent() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
         {/* Mobile header with menu button */}
         {appState.currentView === 'chat' && (
           <div className="lg:hidden flex items-center gap-3 p-4 bg-sidebar border-b border-sidebar-border">

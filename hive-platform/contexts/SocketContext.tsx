@@ -37,11 +37,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
       return;
     }
 
-    // Initialize socket connection
-    const socketInstance = io('http://localhost:3001', {
+    // Initialize socket connection - use empty string for same-origin connection
+    // Path matches backend socket.io configuration for ALB routing
+    const socketInstance = io('', {
       auth: {
         token,
       },
+      path: '/api/socket.io',
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,

@@ -12,6 +12,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Set API URL for production build (uses ALB /api route)
+ENV NEXT_PUBLIC_API_URL=/api
+
 # Build Next.js application
 RUN npm run build
 

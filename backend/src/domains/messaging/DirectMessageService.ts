@@ -284,9 +284,7 @@ export class DirectMessageService {
   /**
    * Convert database row to DirectMessage
    */
-  private rowToDirectMessage(row: any, currentUserId: UUID): DirectMessage {
-    const isUser1 = row.user1_id === currentUserId;
-    
+  private rowToDirectMessage(row: any, _currentUserId: UUID): DirectMessage {
     return {
       id: row.id,
       workspaceId: row.workspace_id,

@@ -29,6 +29,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy migrations folder
+COPY --from=builder /app/migrations ./migrations
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \

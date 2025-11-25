@@ -90,6 +90,7 @@ export interface Organization {
   memberCount: number;
   timezone: string;
   createdAt: string;
+  inviteCode?: string;
   workspace: WorkspaceStructure;
   hub: Hub;
 }
