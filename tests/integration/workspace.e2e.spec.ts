@@ -21,7 +21,7 @@ describe('Workspace Integration Tests', () => {
       }),
     });
 
-    const body = await response.json();
+    const body = await response.json() as any;
     authToken = body.value.token;
   });
 
@@ -38,7 +38,7 @@ describe('Workspace Integration Tests', () => {
       });
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.id).toBeDefined();
@@ -70,7 +70,7 @@ describe('Workspace Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);
@@ -86,7 +86,7 @@ describe('Workspace Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.id).toBe(workspaceId);
@@ -105,7 +105,7 @@ describe('Workspace Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.name).toBe('Updated E2E Workspace');
@@ -124,7 +124,7 @@ describe('Workspace Integration Tests', () => {
         }),
       });
 
-      const createBody = await createResponse.json();
+      const createBody = await createResponse.json() as any;
       const deleteId = createBody.value.id;
 
       const response = await fetch(getUrl(`/v1/workspaces/${deleteId}`), {

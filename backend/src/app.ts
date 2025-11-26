@@ -24,6 +24,20 @@ export async function createApp() {
     requestIdHeader: 'x-correlation-id',
   });
 
+  // Handle empty JSON body - treat as empty object instead of error
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    if (!body || body === '') {
+      done(null, {});
+    } else {
+      try {
+        done(null, JSON.parse(body as string));
+      } catch (err: any) {
+        err.statusCode = 400;
+        done(err, undefined);
+      }
+    }
+  });
+
   // Register CORS
   await app.register(cors, {
     origin: config.corsOrigin,

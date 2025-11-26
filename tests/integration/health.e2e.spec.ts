@@ -13,7 +13,7 @@ describe('Health Check Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.status).toBe('ok');
@@ -27,7 +27,7 @@ describe('Health Check Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.status).toBe('alive');
@@ -41,7 +41,7 @@ describe('Health Check Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.status).toBe('ready');

@@ -1,0 +1,84 @@
+
+> hive-integration-tests@1.0.0 test
+> jest --runInBand --forceExit
+
+PASS ./structure.e2e.spec.ts (63.895 s)
+  Structure Generation Integration Tests (User Story 1)
+    POST /v1/structure/generate
+      ✓ US1-01: should generate structure proposal (20262 ms)
+      ✓ US1-02: should include channels in proposal (18351 ms)
+      ✓ US1-03: should include general channel (12634 ms)
+      ✓ US1-06: should reject non-member access (81 ms)
+    GET /v1/structure/jobs/:jobId
+      ✓ US1-04: should get job status (8 ms)
+    POST /v1/structure/proposals/:jobId/approve
+      ✓ US1-05: should approve proposal and create channels (45 ms)
+
+PASS ./filehub.e2e.spec.ts
+  File Hub Integration Tests (User Story 2)
+    POST /v1/workspaces/:id/files/sync
+      ✓ US2-01: should create file sync job (6 ms)
+    GET /v1/files/search
+      ✓ US2-02: should search files by query (500 ms)
+      ✓ US2-03: should search files by tags (6 ms)
+      ✓ US2-04: should search files by mime type (7 ms)
+    File tagging and indexing
+      ✓ US2-05: should handle tag request (may require existing file) (7 ms)
+      ✓ US2-06: should handle index request (may require existing file) (3 ms)
+
+PASS ./messaging.e2e.spec.ts (12.104 s)
+  Messaging Integration Tests
+    GET /v1/workspaces/:id/channels
+      ✓ MSG-01: should list channels (12 ms)
+    GET /v1/channels/:id
+      ✓ MSG-02: should get channel details (15 ms)
+    POST /v1/channels/:id/messages
+      ✓ MSG-03: should send message (20 ms)
+      ✓ MSG-05: should reject empty message (7 ms)
+    GET /v1/channels/:id/messages
+      ✓ MSG-04: should list messages (7 ms)
+
+PASS ./auth.e2e.spec.ts
+  Authentication Integration Tests
+    POST /auth/register
+      ✓ AUTH-01: should register a new user (52 ms)
+      ✓ AUTH-02: should reject duplicate email (3 ms)
+      ✓ AUTH-03: should reject invalid email format (3 ms)
+      ✓ AUTH-04: should reject short password (2 ms)
+    POST /auth/login
+      ✓ AUTH-05: should login with valid credentials (45 ms)
+      ✓ AUTH-06: should reject invalid password (46 ms)
+      ✓ AUTH-07: should reject non-existent user (3 ms)
+    GET /auth/me
+      ✓ AUTH-08: should return user with valid token (3 ms)
+      ✓ AUTH-09: should reject missing token (1 ms)
+      ✓ AUTH-10: should reject invalid token (2 ms)
+
+PASS ./workspace.e2e.spec.ts
+  Workspace Integration Tests
+    POST /v1/workspaces
+      ✓ WS-01: should create workspace (9 ms)
+      ✓ WS-06: should reject unauthenticated access (1 ms)
+    GET /v1/workspaces
+      ✓ WS-02: should list workspaces (4 ms)
+    GET /v1/workspaces/:id
+      ✓ WS-03: should get workspace by ID (3 ms)
+    PATCH /v1/workspaces/:id
+      ✓ WS-04: should update workspace (4 ms)
+    DELETE /v1/workspaces/:id
+      ✓ WS-05: should delete workspace (17 ms)
+
+PASS ./health.e2e.spec.ts
+  Health Check Integration Tests
+    GET /health
+      ✓ HEALTH-01: should return full health status (8 ms)
+    GET /health/live
+      ✓ HEALTH-02: should return liveness probe (1 ms)
+    GET /health/ready
+      ✓ HEALTH-03: should return readiness probe (3 ms)
+
+Test Suites: 6 passed, 6 total
+Tests:       36 passed, 36 total
+Snapshots:   0 total
+Time:        77.257 s
+Ran all test suites.

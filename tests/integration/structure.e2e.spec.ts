@@ -22,7 +22,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
       }),
     });
 
-    const registerBody = await registerResponse.json();
+    const registerBody = await registerResponse.json() as any;
     authToken = registerBody.value.token;
 
     const workspaceResponse = await fetch(getUrl('/v1/workspaces'), {
@@ -35,7 +35,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
       }),
     });
 
-    const workspaceBody = await workspaceResponse.json();
+    const workspaceBody = await workspaceResponse.json() as any;
     workspaceId = workspaceBody.value.id;
   });
 
@@ -54,7 +54,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
       });
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.job).toBeDefined();
@@ -77,7 +77,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
         }),
       });
 
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.value.proposal.proposal.channels).toBeDefined();
       expect(Array.isArray(body.value.proposal.proposal.channels)).toBe(true);
@@ -97,7 +97,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
         }),
       });
 
-      const body = await response.json();
+      const body = await response.json() as any;
       const channelNames = body.value.proposal.proposal.channels.map(
         (c: any) => c.name.toLowerCase()
       );
@@ -116,7 +116,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
         }),
       });
 
-      const otherBody = await otherUserResponse.json();
+      const otherBody = await otherUserResponse.json() as any;
       const otherToken = otherBody.value.token;
 
       const response = await fetch(getUrl('/v1/structure/generate'), {
@@ -143,7 +143,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.job.jobId).toBe(jobId);
@@ -167,7 +167,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
         }),
       });
 
-      const body = await response.json();
+      const body = await response.json() as any;
       approveJobId = body.value.job.jobId;
     });
 
@@ -181,7 +181,7 @@ describe('Structure Generation Integration Tests (User Story 1)', () => {
       );
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.status).toBe('applied');

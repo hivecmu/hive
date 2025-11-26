@@ -24,7 +24,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.user.email).toBe(testEmail);
@@ -47,7 +47,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('CONFLICT');
@@ -65,7 +65,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('VALIDATION_ERROR');
@@ -83,7 +83,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('VALIDATION_ERROR');
@@ -102,7 +102,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.user.email).toBe(testEmail);
@@ -120,7 +120,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('UNAUTHORIZED');
@@ -137,7 +137,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('UNAUTHORIZED');
@@ -152,7 +152,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.email).toBe(testEmail);
@@ -166,7 +166,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('UNAUTHORIZED');
@@ -179,7 +179,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(false);
       expect(body.issues[0].code).toBe('UNAUTHORIZED');

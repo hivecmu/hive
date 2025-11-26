@@ -21,7 +21,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       }),
     });
 
-    const registerBody = await registerResponse.json();
+    const registerBody = await registerResponse.json() as any;
     authToken = registerBody.value.token;
 
     const workspaceResponse = await fetch(getUrl('/v1/workspaces'), {
@@ -34,7 +34,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       }),
     });
 
-    const workspaceBody = await workspaceResponse.json();
+    const workspaceBody = await workspaceResponse.json() as any;
     workspaceId = workspaceBody.value.id;
   });
 
@@ -49,7 +49,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       );
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.jobId).toBeDefined();
@@ -65,7 +65,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);
@@ -78,7 +78,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);
@@ -94,7 +94,7 @@ describe('File Hub Integration Tests (User Story 2)', () => {
       );
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);

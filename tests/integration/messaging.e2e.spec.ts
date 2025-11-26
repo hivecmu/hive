@@ -22,7 +22,7 @@ describe('Messaging Integration Tests', () => {
       }),
     });
 
-    const registerBody = await registerResponse.json();
+    const registerBody = await registerResponse.json() as any;
     authToken = registerBody.value.token;
 
     const workspaceResponse = await fetch(getUrl('/v1/workspaces'), {
@@ -35,7 +35,7 @@ describe('Messaging Integration Tests', () => {
       }),
     });
 
-    const workspaceBody = await workspaceResponse.json();
+    const workspaceBody = await workspaceResponse.json() as any;
     workspaceId = workspaceBody.value.id;
 
     const generateResponse = await fetch(getUrl('/v1/structure/generate'), {
@@ -50,7 +50,7 @@ describe('Messaging Integration Tests', () => {
       }),
     });
 
-    const generateBody = await generateResponse.json();
+    const generateBody = await generateResponse.json() as any;
     const jobId = generateBody.value.job.jobId;
 
     await fetch(getUrl(`/v1/structure/proposals/${jobId}/approve`), {
@@ -70,7 +70,7 @@ describe('Messaging Integration Tests', () => {
       );
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);
@@ -94,7 +94,7 @@ describe('Messaging Integration Tests', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.id).toBe(channelId);
@@ -120,7 +120,7 @@ describe('Messaging Integration Tests', () => {
       );
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(body.value.content).toBe('Hello from integration test!');
@@ -163,7 +163,7 @@ describe('Messaging Integration Tests', () => {
       );
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body = await response.json() as any;
 
       expect(body.ok).toBe(true);
       expect(Array.isArray(body.value)).toBe(true);

@@ -151,6 +151,28 @@ export class StructureService {
 
       const proposal = aiResult.value;
 
+      // Ensure "general" channel always exists (AI sometimes generates "general-discussion" instead)
+      const hasGeneral = proposal.channels.some(
+        (c) => c.name.toLowerCase() === 'general'
+      );
+      if (!hasGeneral) {
+        // Find if there's a "general-*" channel and rename it, or add a new one
+        const generalIndex = proposal.channels.findIndex(
+          (c) => c.name.toLowerCase().startsWith('general')
+        );
+        if (generalIndex >= 0) {
+          proposal.channels[generalIndex].name = 'general';
+        } else {
+          // Add general channel at the beginning
+          proposal.channels.unshift({
+            name: 'general',
+            description: 'General discussion for the workspace',
+            type: 'core',
+            isPrivate: false,
+          });
+        }
+      }
+
       // Calculate score (simple heuristic for now)
       const score = this.calculateScore(proposal, context);
 

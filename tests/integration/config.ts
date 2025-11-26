@@ -9,7 +9,7 @@ export const config = {
   isCloud,
   baseUrl: isCloud
     ? 'http://hive-platform-alb-1542568641.us-east-1.elb.amazonaws.com/api'
-    : 'http://localhost:3001',
+    : 'http://localhost:3001/api',
   
   timeout: isCloud ? 30000 : 10000,
   
@@ -34,9 +34,15 @@ export const config = {
 };
 
 export function getUrl(endpoint: string): string {
-  const base = config.baseUrl.endsWith('/') 
-    ? config.baseUrl.slice(0, -1) 
-    : config.baseUrl;
+  // Health routes are at root level, not under /api
+  const isHealthRoute = endpoint.startsWith('/health');
+  const base = isHealthRoute
+    ? (isCloud 
+        ? 'http://hive-platform-alb-1542568641.us-east-1.elb.amazonaws.com'
+        : 'http://localhost:3001')
+    : (config.baseUrl.endsWith('/') 
+        ? config.baseUrl.slice(0, -1) 
+        : config.baseUrl);
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   return `${base}${path}`;
 }
